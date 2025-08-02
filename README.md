@@ -11,9 +11,10 @@ Ein einfacher, robuster SMTP Relay Service für Legacy-Geräte (Drucker, Scanner
   
 - **Legacy-freundlich**:
   - Keine Authentifizierung für IP-Whitelist
-  - Einfache Username/Password Auth
-  - Unterstützt alte TLS-Versionen
+  - Statische User für Legacy-Geräte
+  - Unterstützt alte TLS-Versionen (TLS 1.0+)
   - Relaxed SMTP für nicht-konforme Geräte
+  - 8-bit MIME Support für alte Systeme
 
 - **Exchange Online Integration**:
   - OAuth2 Modern Authentication (Device Code, Authorization Code, Client Credentials)
@@ -23,10 +24,11 @@ Ein einfacher, robuster SMTP Relay Service für Legacy-Geräte (Drucker, Scanner
 
 ## 📋 Voraussetzungen
 
-- Red Hat Enterprise Linux 8/9 oder kompatibel
-- Node.js 18+ 
-- Exchange Online/Microsoft 365 Account
-- Firmen-internes Netzwerk
+- Red Hat Enterprise Linux 8/9/10 oder kompatibel (Rocky Linux, AlmaLinux, CentOS Stream)
+- Node.js 18+ (LTS empfohlen: v20.x)
+- Exchange Online/Microsoft 365 Account mit aktivem Abonnement
+- Azure AD App Registration für OAuth2
+- Firmen-internes Netzwerk oder sichere DMZ
 
 ## 🚀 Schnellstart
 
@@ -37,8 +39,13 @@ Ein einfacher, robuster SMTP Relay Service für Legacy-Geräte (Drucker, Scanner
 git clone https://github.com/SilvioTormen/smtprelay.git
 cd smtprelay
 
-# Config anpassen
+# Config vorbereiten
 cp config.example.yml config.yml
+
+# OAuth2 Setup Wizard ausführen (empfohlen)
+npm run setup:auth
+
+# Oder manuell anpassen
 vim config.yml
 
 # Mit Ansible deployen
@@ -48,8 +55,12 @@ ansible-playbook -i inventory/hosts.yml ansible/deploy.yml
 ### 2. Manuelle Installation
 
 ```bash
-# Node.js installieren
+# Node.js 20 LTS installieren (empfohlen)
 curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+sudo dnf install -y nodejs
+
+# Alternativ für RHEL 10:
+sudo dnf module enable nodejs:20
 sudo dnf install -y nodejs
 
 # Repository klonen
@@ -59,8 +70,14 @@ cd smtprelay
 # Dependencies installieren
 npm install
 
-# Config anpassen
-cp config.example.yml config.yml
+# Initial Setup ausführen (prüft Prerequisites)
+npm run setup
+
+# OAuth2 Setup Wizard ausführen
+npm run setup:auth
+
+# Secrets generieren für Production
+npm run security:generate
 
 # Als Service installieren
 sudo cp smtp-relay.service /etc/systemd/system/
@@ -139,14 +156,14 @@ ip_whitelist:
 legacy_auth:
   static_users:
     - username: "scanner"
-      password: "ScannerPass123"
+      password: "CHANGE_THIS_USE_STRONG_PASSWORD"  # Min. 16 Zeichen!
       allowed_ips: ["192.168.1.0/24"]
 ```
 
 ## 🔍 Monitoring & Management
 
 ### Web Dashboard
-- **URL**: `http://server:3001`
+- **URL**: `http://server:3001` (Development) oder `https://server` (Production mit Reverse Proxy)
 - **Features**: 
   - Real-time Statistiken
   - Device Management
