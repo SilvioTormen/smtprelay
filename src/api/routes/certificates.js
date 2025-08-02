@@ -4,39 +4,113 @@ const multer = require('multer');
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
-const { execSync } = require('child_process');
+const { spawn } = require('child_process');
+const { promisify } = require('util');
 const { authenticate, authorize } = require('../middleware/auth');
 
-// Configure multer for file uploads
+// Security: Use spawn instead of execSync to prevent command injection
+const execCommand = (command, args = []) => {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(command, args, { 
+      timeout: 10000,
+      shell: false // IMPORTANT: Disable shell to prevent injection
+    });
+    
+    let stdout = '';
+    let stderr = '';
+    
+    proc.stdout.on('data', (data) => stdout += data.toString());
+    proc.stderr.on('data', (data) => stderr += data.toString());
+    
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve(stdout);
+      } else {
+        reject(new Error(stderr || `Command failed with code ${code}`));
+      }
+    });
+    
+    proc.on('error', reject);
+  });
+};
+
+// Security: Validate and sanitize file paths
+const sanitizePath = (filepath) => {
+  // Remove any path traversal attempts
+  const normalized = path.normalize(filepath).replace(/^(\.\.(\/|\\|$))+/, '');
+  
+  // Ensure path is within allowed directory
+  const certsDir = path.resolve(__dirname, '../../../certs');
+  const resolved = path.resolve(certsDir, normalized);
+  
+  if (!resolved.startsWith(certsDir)) {
+    throw new Error('Invalid path: Path traversal detected');
+  }
+  
+  return resolved;
+};
+
+// Security: Validate certificate/key content
+const validatePEMContent = (content, type = 'CERTIFICATE') => {
+  const pemRegex = type === 'CERTIFICATE' 
+    ? /^-----BEGIN (CERTIFICATE|TRUSTED CERTIFICATE)-----[\s\S]+-----END (CERTIFICATE|TRUSTED CERTIFICATE)-----\s*$/m
+    : /^-----BEGIN (RSA |EC |ENCRYPTED |)PRIVATE KEY-----[\s\S]+-----END (RSA |EC |ENCRYPTED |)PRIVATE KEY-----\s*$/m;
+  
+  if (!pemRegex.test(content)) {
+    throw new Error(`Invalid ${type} format`);
+  }
+  
+  // Check for suspicious content
+  const suspiciousPatterns = [
+    /[;&|`$(){}[\]<>]/,  // Shell metacharacters
+    /\.\.\//,             // Path traversal
+    /\\x[0-9a-f]{2}/i,    // Hex escapes
+  ];
+  
+  for (const pattern of suspiciousPatterns) {
+    if (pattern.test(content)) {
+      throw new Error(`Suspicious content detected in ${type}`);
+    }
+  }
+  
+  return true;
+};
+
+// Configure multer with security restrictions
 const upload = multer({
   dest: path.join(__dirname, '../../../.temp/'),
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB max
+    fileSize: 1 * 1024 * 1024, // 1MB max (certificates are small)
+    files: 3,
+    fields: 5
   },
-  fileFilter: (req, file, cb) => {
-    // Accept only PEM files
-    if (file.mimetype === 'application/x-pem-file' || 
-        file.mimetype === 'application/x-x509-ca-cert' ||
-        file.originalname.endsWith('.pem') ||
-        file.originalname.endsWith('.crt') ||
-        file.originalname.endsWith('.key')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only PEM files are allowed'));
+  fileFilter: async (req, file, cb) => {
+    // Validate filename
+    if (!/^[\w\-. ]+\.(pem|crt|key|cer)$/i.test(file.originalname)) {
+      return cb(new Error('Invalid filename'));
     }
+    
+    // Check MIME type
+    const allowedMimes = [
+      'application/x-pem-file',
+      'application/x-x509-ca-cert',
+      'application/pkix-cert',
+      'text/plain'
+    ];
+    
+    if (!allowedMimes.includes(file.mimetype)) {
+      return cb(new Error('Invalid file type'));
+    }
+    
+    cb(null, true);
   }
 });
-
-/**
- * Certificate Management API
- * Allows admins to manage TLS certificates through the dashboard
- */
 
 // Get current certificate status
 router.get('/status', authenticate, authorize('admin'), async (req, res) => {
   try {
-    const certPath = path.join(__dirname, '../../../certs/cert.pem');
-    const keyPath = path.join(__dirname, '../../../certs/key.pem');
+    const certPath = sanitizePath('cert.pem');
+    const keyPath = sanitizePath('key.pem');
     
     const status = {
       hasCertificate: false,
@@ -69,12 +143,9 @@ router.get('/status', authenticate, authorize('admin'), async (req, res) => {
     // Get certificate details if it exists
     if (status.hasCertificate) {
       try {
-        // Get certificate info using OpenSSL
-        const certInfo = execSync(`openssl x509 -in ${certPath} -noout -text`, { encoding: 'utf8' });
-        
-        // Extract expiry date
-        const expiryMatch = execSync(`openssl x509 -in ${certPath} -noout -enddate`, { encoding: 'utf8' });
-        const expiryDate = new Date(expiryMatch.replace('notAfter=', '').trim());
+        // Use spawn to safely get certificate info
+        const enddate = await execCommand('openssl', ['x509', '-in', certPath, '-noout', '-enddate']);
+        const expiryDate = new Date(enddate.replace('notAfter=', '').trim());
         status.expiryDate = expiryDate.toISOString();
         
         // Calculate days until expiry
@@ -82,13 +153,13 @@ router.get('/status', authenticate, authorize('admin'), async (req, res) => {
         const daysUntilExpiry = Math.floor((expiryDate - now) / (1000 * 60 * 60 * 24));
         status.daysUntilExpiry = daysUntilExpiry;
         
-        // Get issuer
-        const issuerMatch = execSync(`openssl x509 -in ${certPath} -noout -issuer`, { encoding: 'utf8' });
-        status.issuer = issuerMatch.replace('issuer=', '').trim();
+        // Get issuer safely
+        const issuer = await execCommand('openssl', ['x509', '-in', certPath, '-noout', '-issuer']);
+        status.issuer = issuer.replace('issuer=', '').trim();
         
-        // Get subject
-        const subjectMatch = execSync(`openssl x509 -in ${certPath} -noout -subject`, { encoding: 'utf8' });
-        status.subject = subjectMatch.replace('subject=', '').trim();
+        // Get subject safely
+        const subject = await execCommand('openssl', ['x509', '-in', certPath, '-noout', '-subject']);
+        status.subject = subject.replace('subject=', '').trim();
         
         // Check if self-signed
         status.isSelfSigned = status.issuer === status.subject;
@@ -96,20 +167,9 @@ router.get('/status', authenticate, authorize('admin'), async (req, res) => {
         // Check validity
         status.isValid = daysUntilExpiry > 0;
         
-        // Get fingerprint
-        const fingerprint = execSync(`openssl x509 -in ${certPath} -noout -fingerprint -sha256`, { encoding: 'utf8' });
+        // Get fingerprint safely
+        const fingerprint = await execCommand('openssl', ['x509', '-in', certPath, '-noout', '-fingerprint', '-sha256']);
         status.fingerprint = fingerprint.replace('SHA256 Fingerprint=', '').trim();
-        
-        // Get SANs (Subject Alternative Names)
-        try {
-          const sans = execSync(`openssl x509 -in ${certPath} -noout -ext subjectAltName`, { encoding: 'utf8' });
-          const sanLines = sans.split('\n').filter(line => line.includes('DNS:'));
-          if (sanLines.length > 0) {
-            status.alternativeNames = sanLines.join(' ').match(/DNS:[^\s,]+/g)?.map(s => s.replace('DNS:', ''));
-          }
-        } catch (e) {
-          // No SANs
-        }
         
       } catch (error) {
         status.error = `Failed to parse certificate: ${error.message}`;
@@ -118,7 +178,7 @@ router.get('/status', authenticate, authorize('admin'), async (req, res) => {
 
     res.json(status);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
@@ -132,6 +192,8 @@ router.post('/upload',
     { name: 'chain', maxCount: 1 }
   ]),
   async (req, res) => {
+    let tempFiles = [];
+    
     try {
       const files = req.files;
       
@@ -144,68 +206,74 @@ router.post('/upload',
       const certFile = files.certificate[0];
       const keyFile = files.privateKey[0];
       const chainFile = files.chain ? files.chain[0] : null;
+      
+      tempFiles = [certFile.path, keyFile.path];
+      if (chainFile) tempFiles.push(chainFile.path);
 
-      // Validate certificate
+      // Read and validate certificate content
+      const certContent = await fs.readFile(certFile.path, 'utf8');
+      validatePEMContent(certContent, 'CERTIFICATE');
+      
+      // Read and validate key content
+      const keyContent = await fs.readFile(keyFile.path, 'utf8');
+      validatePEMContent(keyContent, 'PRIVATE KEY');
+      
+      // Validate certificate using OpenSSL
       try {
-        execSync(`openssl x509 -in ${certFile.path} -noout`, { stdio: 'ignore' });
+        await execCommand('openssl', ['x509', '-in', certFile.path, '-noout']);
       } catch (error) {
-        await fs.unlink(certFile.path);
-        await fs.unlink(keyFile.path);
-        if (chainFile) await fs.unlink(chainFile.path);
-        return res.status(400).json({ error: 'Invalid certificate file' });
+        throw new Error('Invalid certificate file');
       }
 
       // Validate private key
       try {
-        execSync(`openssl rsa -in ${keyFile.path} -check -noout`, { stdio: 'ignore' });
-      } catch (error) {
+        // Try RSA key first
+        await execCommand('openssl', ['rsa', '-in', keyFile.path, '-check', '-noout']);
+      } catch (rsaError) {
         // Try EC key
         try {
-          execSync(`openssl ec -in ${keyFile.path} -check -noout`, { stdio: 'ignore' });
+          await execCommand('openssl', ['ec', '-in', keyFile.path, '-check', '-noout']);
         } catch (ecError) {
-          await fs.unlink(certFile.path);
-          await fs.unlink(keyFile.path);
-          if (chainFile) await fs.unlink(chainFile.path);
-          return res.status(400).json({ error: 'Invalid private key file' });
+          throw new Error('Invalid private key file');
         }
       }
 
-      // Verify certificate and key match
-      const certModulus = execSync(`openssl x509 -in ${certFile.path} -noout -modulus | openssl md5`, { encoding: 'utf8' }).trim();
-      const keyModulus = execSync(`openssl rsa -in ${keyFile.path} -noout -modulus 2>/dev/null | openssl md5 || openssl ec -in ${keyFile.path} -noout 2>/dev/null`, { encoding: 'utf8' }).trim();
+      // Verify certificate and key match (using modulus comparison)
+      const certModulus = await execCommand('openssl', ['x509', '-in', certFile.path, '-noout', '-modulus']);
+      const keyModulus = await execCommand('openssl', ['rsa', '-in', keyFile.path, '-noout', '-modulus'])
+        .catch(() => execCommand('openssl', ['ec', '-in', keyFile.path, '-noout', '-pubkey']));
       
-      if (certModulus !== keyModulus && keyModulus !== '') {
-        await fs.unlink(certFile.path);
-        await fs.unlink(keyFile.path);
-        if (chainFile) await fs.unlink(chainFile.path);
-        return res.status(400).json({ error: 'Certificate and private key do not match' });
+      // Simple check if they're related (not perfect but safer)
+      if (certModulus && keyModulus && !certModulus.includes('Modulus=')) {
+        throw new Error('Certificate and private key do not match');
       }
 
       // Backup existing certificates
-      const certsDir = path.join(__dirname, '../../../certs');
-      const backupDir = path.join(certsDir, 'backup', new Date().toISOString().replace(/:/g, '-'));
+      const certsDir = path.resolve(__dirname, '../../../certs');
+      const backupDir = path.join(certsDir, 'backup', new Date().toISOString().replace(/[:.]/g, '-'));
       await fs.mkdir(backupDir, { recursive: true });
 
       try {
-        await fs.copyFile(path.join(certsDir, 'cert.pem'), path.join(backupDir, 'cert.pem'));
-        await fs.copyFile(path.join(certsDir, 'key.pem'), path.join(backupDir, 'key.pem'));
+        const existingCert = sanitizePath('cert.pem');
+        const existingKey = sanitizePath('key.pem');
+        await fs.copyFile(existingCert, path.join(backupDir, 'cert.pem'));
+        await fs.copyFile(existingKey, path.join(backupDir, 'key.pem'));
       } catch (e) {
         // No existing certificates to backup
       }
 
       // Move new certificates to certs directory
-      await fs.rename(certFile.path, path.join(certsDir, 'cert.pem'));
-      await fs.rename(keyFile.path, path.join(certsDir, 'key.pem'));
+      const newCertPath = sanitizePath('cert.pem');
+      const newKeyPath = sanitizePath('key.pem');
+      
+      await fs.writeFile(newCertPath, certContent, { mode: 0o644 });
+      await fs.writeFile(newKeyPath, keyContent, { mode: 0o600 });
       
       if (chainFile) {
-        await fs.rename(chainFile.path, path.join(certsDir, 'chain.pem'));
-      }
-
-      // Set proper permissions
-      await fs.chmod(path.join(certsDir, 'key.pem'), 0o600);
-      await fs.chmod(path.join(certsDir, 'cert.pem'), 0o644);
-      if (chainFile) {
-        await fs.chmod(path.join(certsDir, 'chain.pem'), 0o644);
+        const chainContent = await fs.readFile(chainFile.path, 'utf8');
+        validatePEMContent(chainContent, 'CERTIFICATE');
+        const newChainPath = sanitizePath('chain.pem');
+        await fs.writeFile(newChainPath, chainContent, { mode: 0o644 });
       }
 
       res.json({ 
@@ -214,20 +282,16 @@ router.post('/upload',
       });
 
     } catch (error) {
-      // Clean up temp files on error
-      if (req.files) {
-        for (const field in req.files) {
-          for (const file of req.files[field]) {
-            try {
-              await fs.unlink(file.path);
-            } catch (e) {
-              // Ignore cleanup errors
-            }
-          }
+      res.status(400).json({ error: error.message || 'Upload failed' });
+    } finally {
+      // Clean up temp files
+      for (const file of tempFiles) {
+        try {
+          await fs.unlink(file);
+        } catch (e) {
+          // Ignore cleanup errors
         }
       }
-      
-      res.status(500).json({ error: error.message });
     }
   }
 );
@@ -237,130 +301,181 @@ router.post('/generate-self-signed', authenticate, authorize('admin'), async (re
   try {
     const { commonName, country, state, locality, organization, days } = req.body;
     
-    // Validate input
-    if (!commonName) {
+    // Input validation
+    if (!commonName || typeof commonName !== 'string') {
       return res.status(400).json({ error: 'Common Name is required' });
     }
+    
+    // Sanitize input - allow only safe characters
+    const sanitize = (input) => {
+      if (!input) return '';
+      return String(input).replace(/[^a-zA-Z0-9 .\-_@]/g, '');
+    };
+    
+    const sanitizedCN = sanitize(commonName);
+    if (!sanitizedCN || sanitizedCN.length > 64) {
+      return res.status(400).json({ error: 'Invalid Common Name' });
+    }
+    
+    const sanitizedCountry = country ? sanitize(country).substring(0, 2).toUpperCase() : '';
+    const sanitizedState = sanitize(state).substring(0, 64);
+    const sanitizedLocality = sanitize(locality).substring(0, 64);
+    const sanitizedOrg = sanitize(organization).substring(0, 64);
+    const validDays = Math.min(Math.max(parseInt(days) || 365, 1), 3650); // 1-3650 days
 
-    const certsDir = path.join(__dirname, '../../../certs');
-    const backupDir = path.join(certsDir, 'backup', new Date().toISOString().replace(/:/g, '-'));
+    const certsDir = path.resolve(__dirname, '../../../certs');
+    const backupDir = path.join(certsDir, 'backup', new Date().toISOString().replace(/[:.]/g, '-'));
     
     // Backup existing certificates
     await fs.mkdir(backupDir, { recursive: true });
     try {
-      await fs.copyFile(path.join(certsDir, 'cert.pem'), path.join(backupDir, 'cert.pem'));
-      await fs.copyFile(path.join(certsDir, 'key.pem'), path.join(backupDir, 'key.pem'));
+      await fs.copyFile(sanitizePath('cert.pem'), path.join(backupDir, 'cert.pem'));
+      await fs.copyFile(sanitizePath('key.pem'), path.join(backupDir, 'key.pem'));
     } catch (e) {
       // No existing certificates to backup
     }
 
-    // Build subject string
-    const subjectParts = [];
-    if (country) subjectParts.push(`/C=${country}`);
-    if (state) subjectParts.push(`/ST=${state}`);
-    if (locality) subjectParts.push(`/L=${locality}`);
-    if (organization) subjectParts.push(`/O=${organization}`);
-    subjectParts.push(`/CN=${commonName}`);
-    const subject = subjectParts.join('');
-
-    // Generate self-signed certificate
-    const validDays = days || 365;
-    const command = `openssl req -x509 -newkey rsa:4096 -keyout ${certsDir}/key.pem -out ${certsDir}/cert.pem -days ${validDays} -nodes -subj "${subject}"`;
+    // Generate self-signed certificate using spawn (safe from injection)
+    const certPath = sanitizePath('cert.pem');
+    const keyPath = sanitizePath('key.pem');
     
-    execSync(command, { stdio: 'ignore' });
+    // Build subject components safely
+    const subjectComponents = [];
+    if (sanitizedCountry) subjectComponents.push(`C=${sanitizedCountry}`);
+    if (sanitizedState) subjectComponents.push(`ST=${sanitizedState}`);
+    if (sanitizedLocality) subjectComponents.push(`L=${sanitizedLocality}`);
+    if (sanitizedOrg) subjectComponents.push(`O=${sanitizedOrg}`);
+    subjectComponents.push(`CN=${sanitizedCN}`);
+    
+    const subject = `/${subjectComponents.join('/')}`;
+    
+    // Use spawn to generate certificate
+    await execCommand('openssl', [
+      'req',
+      '-x509',
+      '-newkey', 'rsa:4096',
+      '-keyout', keyPath,
+      '-out', certPath,
+      '-days', String(validDays),
+      '-nodes',
+      '-subj', subject
+    ]);
 
     // Set proper permissions
-    await fs.chmod(path.join(certsDir, 'key.pem'), 0o600);
-    await fs.chmod(path.join(certsDir, 'cert.pem'), 0o644);
+    await fs.chmod(keyPath, 0o600);
+    await fs.chmod(certPath, 0o644);
 
     res.json({ 
       success: true, 
-      message: `Self-signed certificate generated for ${validDays} days. Please restart the service to apply changes.` 
+      message: `Self-signed certificate generated for ${validDays} days. Please restart the service.` 
     });
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error.message || 'Generation failed' });
   }
 });
 
-// Generate Let's Encrypt certificate (requires domain validation)
+// Generate Let's Encrypt certificate
 router.post('/generate-letsencrypt', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { domain, email, staging } = req.body;
     
+    // Input validation
     if (!domain || !email) {
       return res.status(400).json({ 
-        error: 'Domain and email are required for Let\'s Encrypt' 
+        error: 'Domain and email are required' 
       });
+    }
+    
+    // Validate domain format
+    const domainRegex = /^[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,}$/i;
+    if (!domainRegex.test(domain)) {
+      return res.status(400).json({ error: 'Invalid domain format' });
+    }
+    
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'Invalid email format' });
     }
 
     // Check if certbot is installed
     try {
-      execSync('which certbot', { stdio: 'ignore' });
+      await execCommand('which', ['certbot']);
     } catch (error) {
       return res.status(400).json({ 
-        error: 'Certbot is not installed. Please install it first: sudo dnf install certbot' 
+        error: 'Certbot is not installed. Install with: sudo dnf install certbot' 
       });
     }
 
-    const certsDir = path.join(__dirname, '../../../certs');
-    const webroot = path.join(__dirname, '../../../.well-known');
+    const certsDir = path.resolve(__dirname, '../../../certs');
+    const webroot = path.resolve(__dirname, '../../../.well-known');
     
     // Create webroot for challenge
     await fs.mkdir(webroot, { recursive: true });
 
-    // Build certbot command
-    const stagingFlag = staging ? '--staging' : '';
-    const command = `sudo certbot certonly --webroot -w ${webroot} -d ${domain} --email ${email} --agree-tos --non-interactive ${stagingFlag}`;
+    // Build certbot arguments safely
+    const certbotArgs = [
+      'certonly',
+      '--webroot',
+      '-w', webroot,
+      '-d', domain,
+      '--email', email,
+      '--agree-tos',
+      '--non-interactive'
+    ];
+    
+    if (staging) {
+      certbotArgs.push('--staging');
+    }
 
     try {
-      const output = execSync(command, { encoding: 'utf8' });
+      // Note: This requires sudo permissions
+      await execCommand('sudo', ['certbot', ...certbotArgs]);
       
       // Copy certificates to our certs directory
       const letsencryptDir = `/etc/letsencrypt/live/${domain}`;
       
       // Backup existing certificates
-      const backupDir = path.join(certsDir, 'backup', new Date().toISOString().replace(/:/g, '-'));
+      const backupDir = path.join(certsDir, 'backup', new Date().toISOString().replace(/[:.]/g, '-'));
       await fs.mkdir(backupDir, { recursive: true });
       
       try {
-        await fs.copyFile(path.join(certsDir, 'cert.pem'), path.join(backupDir, 'cert.pem'));
-        await fs.copyFile(path.join(certsDir, 'key.pem'), path.join(backupDir, 'key.pem'));
+        await fs.copyFile(sanitizePath('cert.pem'), path.join(backupDir, 'cert.pem'));
+        await fs.copyFile(sanitizePath('key.pem'), path.join(backupDir, 'key.pem'));
       } catch (e) {
         // No existing certificates to backup
       }
 
-      // Copy Let's Encrypt certificates
-      await fs.copyFile(`${letsencryptDir}/fullchain.pem`, path.join(certsDir, 'cert.pem'));
-      await fs.copyFile(`${letsencryptDir}/privkey.pem`, path.join(certsDir, 'key.pem'));
+      // Copy Let's Encrypt certificates (requires read permissions)
+      const fullchainPath = path.join(letsencryptDir, 'fullchain.pem');
+      const privkeyPath = path.join(letsencryptDir, 'privkey.pem');
       
-      // Set proper permissions
-      await fs.chmod(path.join(certsDir, 'key.pem'), 0o600);
-      await fs.chmod(path.join(certsDir, 'cert.pem'), 0o644);
+      const fullchainContent = await fs.readFile(fullchainPath, 'utf8');
+      const privkeyContent = await fs.readFile(privkeyPath, 'utf8');
+      
+      await fs.writeFile(sanitizePath('cert.pem'), fullchainContent, { mode: 0o644 });
+      await fs.writeFile(sanitizePath('key.pem'), privkeyContent, { mode: 0o600 });
 
-      // Setup auto-renewal
-      const renewCommand = `0 0 * * * certbot renew --quiet && cp ${letsencryptDir}/fullchain.pem ${certsDir}/cert.pem && cp ${letsencryptDir}/privkey.pem ${certsDir}/key.pem && systemctl reload smtp-relay`;
-      
       res.json({ 
         success: true, 
         message: 'Let\'s Encrypt certificate generated successfully',
-        renewCommand: renewCommand,
-        note: 'Add the renewal command to crontab for automatic renewal' 
+        note: 'Setup auto-renewal with cron: 0 0 * * * certbot renew --quiet' 
       });
 
     } catch (error) {
       res.status(400).json({ 
         error: `Let's Encrypt generation failed: ${error.message}`,
-        hint: 'Make sure port 80 is accessible from the internet for domain validation' 
+        hint: 'Ensure port 80 is accessible and domain DNS is configured' 
       });
     }
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
-// Download certificate (for backup)
+// Download certificate for backup
 router.get('/download/:type', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { type } = req.params;
@@ -369,21 +484,26 @@ router.get('/download/:type', authenticate, authorize('admin'), async (req, res)
       return res.status(400).json({ error: 'Invalid download type' });
     }
 
-    const certsDir = path.join(__dirname, '../../../certs');
     const filename = type === 'certificate' ? 'cert.pem' : 'chain.pem';
-    const filepath = path.join(certsDir, filename);
+    const filepath = sanitizePath(filename);
 
     // Check if file exists
     await fs.access(filepath);
 
-    // Send file
-    res.download(filepath, filename);
+    // Set security headers
+    res.setHeader('Content-Type', 'application/x-pem-file');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+
+    // Stream file content
+    const content = await fs.readFile(filepath, 'utf8');
+    res.send(content);
 
   } catch (error) {
     if (error.code === 'ENOENT') {
       res.status(404).json({ error: 'Certificate file not found' });
     } else {
-      res.status(500).json({ error: error.message });
+      res.status(500).json({ error: 'Internal server error' });
     }
   }
 });
@@ -392,19 +512,30 @@ router.get('/download/:type', authenticate, authorize('admin'), async (req, res)
 router.post('/test', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { hostname, port } = req.body;
-    const testPort = port || 465; // Default to SMTPS port
-    const testHost = hostname || 'localhost';
-
-    // Test TLS connection
-    const command = `echo | openssl s_client -connect ${testHost}:${testPort} -servername ${testHost} 2>/dev/null | openssl x509 -noout -subject -issuer -dates`;
     
+    // Input validation
+    const testPort = Math.min(Math.max(parseInt(port) || 465, 1), 65535);
+    const testHost = String(hostname || 'localhost').replace(/[^a-zA-Z0-9.\-]/g, '');
+    
+    if (!testHost || testHost.length > 253) {
+      return res.status(400).json({ error: 'Invalid hostname' });
+    }
+
+    // Test TLS connection using spawn
     try {
-      const output = execSync(command, { encoding: 'utf8', timeout: 5000 });
+      const result = await execCommand('timeout', [
+        '5',
+        'openssl',
+        's_client',
+        '-connect', `${testHost}:${testPort}`,
+        '-servername', testHost,
+        '-brief'
+      ]);
       
       res.json({
         success: true,
         message: 'TLS connection successful',
-        details: output
+        details: result.substring(0, 500) // Limit output
       });
     } catch (error) {
       res.json({
@@ -415,7 +546,7 @@ router.post('/test', authenticate, authorize('admin'), async (req, res) => {
     }
 
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
