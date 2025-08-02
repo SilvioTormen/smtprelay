@@ -1,6 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const qrcode = require('qrcode');
+const cookieParser = require('cookie-parser');
 const {
   generateTokens,
   verifyRefreshToken,
@@ -15,6 +16,9 @@ const {
 } = require('../middleware/auth');
 
 const router = express.Router();
+
+// Add cookie parser middleware
+router.use(cookieParser());
 
 // In-memory user store (replace with database in production)
 const users = new Map([
@@ -133,9 +137,10 @@ router.post('/login',
         // Increment failed attempts
         user.failedAttempts++;
         
-        // Lock account after 5 failed attempts
-        if (user.failedAttempts >= 5) {
-          user.lockedUntil = Date.now() + (30 * 60 * 1000); // Lock for 30 minutes
+        // Exponential backoff for lockout
+        const lockoutDuration = securityService.calculateLockoutDuration(user.failedAttempts);
+        if (lockoutDuration > 0) {
+          user.lockedUntil = Date.now() + lockoutDuration;
           return res.status(423).json({ 
             error: 'Account locked due to multiple failed attempts',
             code: 'ACCOUNT_LOCKED'
@@ -174,20 +179,29 @@ router.post('/login',
       // Generate tokens
       const { accessToken, refreshToken } = generateTokens(user);
 
-      // Set secure HTTP-only cookie for refresh token
+      // Set BOTH tokens as secure HTTP-only cookies
+      res.cookie('accessToken', accessToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        maxAge: 15 * 60 * 1000, // 15 minutes for access token
+        path: '/'
+      });
+      
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        path: '/api/auth/refresh' // Only sent to refresh endpoint
       });
 
       // Log successful login
       console.log(`Login successful: ${user.username} from ${clientIp}`);
 
+      // Don't send tokens in response body - only user info
       res.json({
         success: true,
-        accessToken,
         user: {
           id: user.id,
           username: user.username,
@@ -237,17 +251,26 @@ router.post('/refresh', async (req, res) => {
     // Generate new tokens
     const tokens = generateTokens(user);
 
-    // Update refresh token cookie
+    // Update BOTH token cookies
+    res.cookie('accessToken', tokens.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 15 * 60 * 1000, // 15 minutes
+      path: '/'
+    });
+    
     res.cookie('refreshToken', tokens.refreshToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/api/auth/refresh'
     });
 
     res.json({
       success: true,
-      accessToken: tokens.accessToken
+      message: 'Token refreshed'
     });
   } catch (error) {
     console.error('Refresh token error:', error);
@@ -261,15 +284,15 @@ router.post('/refresh', async (req, res) => {
 // Logout endpoint
 router.post('/logout', async (req, res) => {
   try {
-    // Blacklist the current token
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      const token = authHeader.substring(7);
-      blacklistToken(token);
+    // Blacklist the current token from cookie
+    const accessToken = req.cookies.accessToken;
+    if (accessToken) {
+      blacklistToken(accessToken);
     }
 
-    // Clear refresh token cookie
-    res.clearCookie('refreshToken');
+    // Clear ALL auth cookies
+    res.clearCookie('accessToken', { path: '/' });
+    res.clearCookie('refreshToken', { path: '/api/auth/refresh' });
 
     res.json({
       success: true,
@@ -361,6 +384,57 @@ router.post('/2fa/verify',
         code: '2FA_VERIFY_ERROR'
       });
     }
+});
+
+// Check current session endpoint
+router.get('/session', async (req, res) => {
+  try {
+    const accessToken = req.cookies.accessToken;
+    
+    if (!accessToken) {
+      return res.status(401).json({ 
+        error: 'Not authenticated',
+        code: 'NO_SESSION'
+      });
+    }
+
+    // Verify token
+    const jwt = require('jsonwebtoken');
+    let decoded;
+    try {
+      decoded = jwt.verify(accessToken, process.env.JWT_SECRET);
+    } catch (err) {
+      return res.status(401).json({ 
+        error: 'Invalid session',
+        code: 'INVALID_SESSION'
+      });
+    }
+    
+    // Get user
+    const user = Array.from(users.values()).find(u => u.id === decoded.userId);
+    if (!user) {
+      return res.status(401).json({ 
+        error: 'User not found',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        permissions: user.permissions,
+        twoFactorEnabled: user.twoFactorEnabled
+      }
+    });
+  } catch (error) {
+    res.status(401).json({ 
+      error: 'Invalid session',
+      code: 'INVALID_SESSION'
+    });
+  }
 });
 
 // Change password

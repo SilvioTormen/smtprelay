@@ -47,8 +47,9 @@ const IPWhitelist = () => {
   const loadConfig = async () => {
     try {
       const response = await fetch('/api/ip-whitelist/config', {
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         }
       });
       
@@ -72,9 +73,9 @@ const IPWhitelist = () => {
     try {
       const response = await fetch('/api/ip-whitelist/add', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           category: selectedCategory,
@@ -102,9 +103,9 @@ const IPWhitelist = () => {
     try {
       const response = await fetch('/api/ip-whitelist/remove', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ category, subcategory, ip })
       });
@@ -131,9 +132,9 @@ const IPWhitelist = () => {
     try {
       const response = await fetch('/api/ip-whitelist/import', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           category: selectedCategory,
@@ -159,8 +160,9 @@ const IPWhitelist = () => {
   const handleExport = async (category, subcategory) => {
     try {
       const response = await fetch(`/api/ip-whitelist/export/${category}/${subcategory}`, {
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         }
       });
 
@@ -193,9 +195,9 @@ const IPWhitelist = () => {
     try {
       const response = await fetch('/api/ip-whitelist/test', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ ip: testIP })
       });
@@ -215,9 +217,9 @@ const IPWhitelist = () => {
     try {
       const response = await fetch('/api/ip-whitelist/settings', {
         method: 'POST',
+        credentials: 'include',
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({ [setting]: value })
       });
@@ -236,8 +238,9 @@ const IPWhitelist = () => {
   const loadAuditLog = async () => {
     try {
       const response = await fetch('/api/ip-whitelist/audit?limit=100', {
+        credentials: 'include',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Content-Type': 'application/json'
         }
       });
 
