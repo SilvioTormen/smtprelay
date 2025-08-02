@@ -52,15 +52,17 @@ tls:
 # Legacy Geräte Authentifizierung
 legacy_auth:
   # Einfache User/Pass für Geräte die Auth können
+  # WICHTIG: Verwenden Sie starke, einzigartige Passwörter!
+  # Generieren Sie diese mit: openssl rand -base64 16
   static_users:
     - username: "drucker"
-      password: "DruckerPass123"
+      password: "CHANGE_THIS_USE_STRONG_PASSWORD"  # Mindestens 16 Zeichen!
       allowed_ips: ["192.168.1.0/24"]
     - username: "scanner"  
-      password: "ScannerPass456"
+      password: "CHANGE_THIS_USE_STRONG_PASSWORD"  # Eindeutiges Passwort!
       allowed_ips: ["192.168.1.0/24"]
     - username: "nas"
-      password: "NasPass789"
+      password: "CHANGE_THIS_USE_STRONG_PASSWORD"  # Niemals Default-Passwörter!
       allowed_ips: ["10.0.0.0/16"]
 
 # IP-basierte Authentifizierung (wichtig für Legacy!)
