@@ -89,19 +89,25 @@ class APIServer {
     this.app.use('/api/', limiter);
     this.app.use('/api/auth/login', authLimiter);
 
-    // Session Management
+    // Session Management with security enhancements
     this.app.use(session({
       store: new RedisStore({ client: this.redisClient }),
       secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
+      rolling: true, // Reset expiry on activity
       cookie: {
         secure: process.env.NODE_ENV === 'production', // HTTPS only in production
         httpOnly: true, // Prevent XSS
-        maxAge: 1000 * 60 * 60 * 24, // 24 hours
-        sameSite: 'strict' // CSRF protection
+        maxAge: 1000 * 60 * 60 * 2, // 2 hours (reduced from 24)
+        sameSite: 'strict', // CSRF protection
+        domain: process.env.COOKIE_DOMAIN || undefined,
+        path: '/'
       },
-      name: 'smtp.sid' // Change default session name
+      name: 'smtp.sid', // Change default session name
+      genid: () => require('crypto').randomBytes(32).toString('hex'), // Secure session ID
+      // Regenerate session on privilege escalation
+      unset: 'destroy' // Destroy session on unset
     }));
 
     // Body Parser
