@@ -16,8 +16,9 @@ Ein einfacher, robuster SMTP Relay Service für Legacy-Geräte (Drucker, Scanner
   - Relaxed SMTP für nicht-konforme Geräte
 
 - **Exchange Online Integration**:
-  - OAuth2 Modern Authentication
-  - App Password Support als Fallback
+  - OAuth2 Modern Authentication (Device Code, Authorization Code, Client Credentials)
+  - Interaktives Setup mit Wizard
+  - Automatische Token-Erneuerung
   - Microsoft Graph API Alternative
 
 ## 📋 Voraussetzungen
@@ -80,19 +81,51 @@ pm2 startup
 
 ### Exchange Online OAuth2 Setup
 
-1. Azure AD App Registration erstellen
-2. API Permissions: `SMTP.Send` 
-3. Client Secret generieren
-4. In config.yml eintragen:
+#### Schnellstart mit Setup Wizard (Empfohlen)
 
+```bash
+# Interaktiver OAuth2 Setup Wizard
+npm run setup:auth
+```
+
+Der Wizard führt dich durch:
+- Auswahl der Authentifizierungsmethode
+- Azure AD Konfiguration
+- Automatische Token-Generierung
+
+#### Verfügbare OAuth2 Methoden
+
+**1. Device Code Flow** (Empfohlen für Server)
 ```yaml
 exchange_online:
   auth:
-    method: "oauth2"
+    method: "device_code"
+    tenant_id: "your-tenant-id"  # oder "common"
+    client_id: "your-client-id"
+```
+
+**2. Client Credentials** (Für Automatisierung)
+```yaml
+exchange_online:
+  auth:
+    method: "client_credentials"
     tenant_id: "your-tenant-id"
     client_id: "your-client-id"  
     client_secret: "your-secret"
+    send_as: "relay@domain.com"
 ```
+
+**3. Authorization Code** (Für Web Dashboard)
+```yaml
+exchange_online:
+  auth:
+    method: "authorization_code"
+    tenant_id: "your-tenant-id"
+    client_id: "your-client-id"
+    redirect_uri: "http://localhost:3001/api/auth/callback"
+```
+
+Detaillierte Anleitung: [OAuth2 Setup Guide](docs/OAUTH2_SETUP.md)
 
 ### Legacy Geräte konfigurieren
 
@@ -110,11 +143,21 @@ legacy_auth:
       allowed_ips: ["192.168.1.0/24"]
 ```
 
-## 🔍 Monitoring
+## 🔍 Monitoring & Management
 
-- Health Check: `http://server:8080/health`
+### Web Dashboard
+- **URL**: `http://server:3001`
+- **Features**: 
+  - Real-time Statistiken
+  - Device Management
+  - Queue Monitoring
+  - Multi-Factor Authentication (TOTP + FIDO2/YubiKey)
+
+### System Monitoring
+- Health Check: `http://server:3001/api/health`
 - Logs: `/var/log/smtp-relay/`
 - PM2 Status: `pm2 status`
+- Security Check: `npm run security:check`
 
 ## 📝 Typische Legacy-Geräte
 
@@ -136,9 +179,25 @@ legacy_auth:
 
 ### Exchange Authentifizierung fehlgeschlagen
 
-1. OAuth2 Credentials korrekt?
-2. Tenant ID stimmt?
-3. API Permissions gesetzt?
+1. Setup Wizard erneut ausführen: `npm run setup:auth`
+2. Token-Status prüfen: `cat .tokens.json`
+3. Azure AD Permissions checken:
+   - Device Code: `Mail.Send`, `SMTP.Send`, `offline_access`
+   - Client Credentials: `Mail.Send` (Application)
+4. Tokens löschen und neu authentifizieren:
+   ```bash
+   rm .tokens.json
+   npm run setup:auth
+   ```
+
+## 🔒 Security Features
+
+- **Multi-Factor Authentication**: TOTP (Microsoft Authenticator) + FIDO2 (YubiKey)
+- **OAuth2 Modern Authentication**: Keine Passwörter im Code
+- **Automatische Security Checks**: `npm run security:check`
+- **Sichere Token-Speicherung**: Automatisches Refresh
+- **Rate Limiting & IP Whitelisting**: DDoS Schutz
+- **Security Headers**: CSP, HSTS, etc.
 
 ## 📄 Lizenz
 
