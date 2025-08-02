@@ -1,0 +1,37 @@
+[Unit]
+Description=Legacy SMTP Relay for Exchange Online
+Documentation=https://github.com/SilvioTormen/smtprelay
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=smtp-relay
+Group=smtp-relay
+WorkingDirectory=/opt/smtp-relay
+ExecStart=/usr/bin/node /opt/smtp-relay/src/index.js
+Restart=always
+RestartSec=10
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/log/smtp-relay /opt/smtp-relay/queue /opt/smtp-relay/logs
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=512
+
+# Environment
+Environment="NODE_ENV=production"
+EnvironmentFile=-/etc/smtp-relay/smtp-relay.env
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=smtp-relay
+
+[Install]
+WantedBy=multi-user.target

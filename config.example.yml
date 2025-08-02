@@ -1,0 +1,151 @@
+# Legacy SMTP Relay Configuration
+# Copy this file to config.yml and adjust the settings
+
+# Multi-Port SMTP Server für Legacy Geräte
+smtp:
+  listeners:
+    # Port 25 - Alte Geräte ohne Auth/TLS
+    - name: "legacy-plain"
+      port: 25
+      host: "0.0.0.0"
+      auth:
+        required: false  # Keine Auth für alte Drucker
+        enabled: false
+      tls:
+        enabled: false   # Kein TLS für ganz alte Geräte
+        optional: true   # Falls Gerät es unterstützt
+    
+    # Port 587 - Neuere Legacy Geräte mit STARTTLS
+    - name: "submission"
+      port: 587
+      host: "0.0.0.0"
+      auth:
+        required: false  # Optional für Legacy
+        enabled: true
+        methods:
+          - PLAIN
+          - LOGIN
+      tls:
+        enabled: true
+        starttls: true   # STARTTLS Support
+        required: false  # Optional für Legacy
+    
+    # Port 465 - Alte Geräte mit Implicit SSL
+    - name: "smtps"
+      port: 465
+      host: "0.0.0.0"
+      auth:
+        required: false
+        enabled: true
+      tls:
+        enabled: true
+        implicit: true   # Implicit TLS/SSL
+
+# TLS Zertifikate (falls vorhanden)
+tls:
+  cert: "./certs/cert.pem"    # Optional: Self-signed für Legacy
+  key: "./certs/key.pem"
+  # Für Legacy: Akzeptiere alte TLS Versionen
+  min_version: "TLSv1.0"       # Legacy Support!
+  ciphers: "DEFAULT"           # Alle Cipher für Kompatibilität
+
+# Legacy Geräte Authentifizierung
+legacy_auth:
+  # Einfache User/Pass für Geräte die Auth können
+  static_users:
+    - username: "drucker"
+      password: "DruckerPass123"
+      allowed_ips: ["192.168.1.0/24"]
+    - username: "scanner"  
+      password: "ScannerPass456"
+      allowed_ips: ["192.168.1.0/24"]
+    - username: "nas"
+      password: "NasPass789"
+      allowed_ips: ["10.0.0.0/16"]
+
+# IP-basierte Authentifizierung (wichtig für Legacy!)
+ip_whitelist:
+  # Geräte die OHNE Auth senden dürfen
+  no_auth_required:
+    - "192.168.1.0/24"   # Drucker VLAN
+    - "10.0.50.0/24"     # IoT/Legacy VLAN
+    - "172.16.0.0/16"    # Alte Server
+  
+  # Komplett blockierte IPs
+  blacklist: []
+
+# Exchange Online Relay
+exchange_online:
+  host: "smtp.office365.com"
+  port: 587
+  
+  # OAuth2 für Modern Auth (empfohlen)
+  auth:
+    method: "oauth2"
+    tenant_id: "your-tenant-id"
+    client_id: "your-client-id"
+    client_secret: "your-client-secret"
+    
+  # Alternative: App Password (einfacher für Test)
+  # auth:
+  #   method: "basic"
+  #   username: "relay@yourdomain.com"
+  #   password: "app-specific-password"
+
+# Relay Regeln
+relay:
+  # Von welchen Domains akzeptieren
+  allowed_sender_domains:
+    - "*"  # Alle internen Sender erlauben
+  
+  # An welche Domains weiterleiten
+  allowed_recipient_domains:
+    - "yourdomain.com"
+    - "external-partner.com"
+  
+  # Header Rewriting für Legacy
+  header_rewrite:
+    # Füge fehlende Headers hinzu
+    add_message_id: true
+    add_date: true
+    add_received: true
+    # Korrigiere invalide From Adressen
+    fix_from: true
+    default_from: "noreply@yourdomain.com"
+
+# Queue für Ausfallsicherheit
+queue:
+  enabled: true
+  directory: "./queue"
+  retry:
+    max_attempts: 5
+    delays: [60, 300, 900, 3600, 7200]  # Sekunden
+
+# Logging
+logging:
+  level: "info"
+  file: "/var/log/smtp-relay/relay.log"
+  # Spezial-Logs für Legacy Debugging
+  log_auth_failures: true
+  log_tls_errors: true
+  log_per_device: true  # Separate Logs per IP
+
+# Rate Limiting (sanft für Legacy)
+rate_limit:
+  enabled: true
+  # Großzügige Limits für Legacy
+  per_ip: 1000        # Pro Stunde
+  per_sender: 500     # Pro Stunde
+  burst: 50           # Burst erlauben
+
+# Legacy-spezifische Einstellungen
+legacy:
+  # Akzeptiere nicht-standard SMTP Commands
+  relaxed_smtp: true
+  # Akzeptiere 8-bit in Headers
+  allow_8bit_headers: true
+  # Größere Timeouts für langsame Geräte
+  command_timeout: 300
+  data_timeout: 600
+  # Akzeptiere Mails ohne From
+  allow_empty_from: true
