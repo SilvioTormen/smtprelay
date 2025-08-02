@@ -1,0 +1,157 @@
+---
+- name: Deploy Legacy SMTP Relay
+  hosts: smtp_relay_servers
+  become: yes
+  vars:
+    app_name: smtp-relay
+    app_user: smtp-relay
+    app_dir: /opt/smtp-relay
+    node_version: "20"
+    config_dir: /etc/smtp-relay
+    log_dir: /var/log/smtp-relay
+
+  tasks:
+    - name: Install Node.js repository
+      shell: |
+        curl -fsSL https://rpm.nodesource.com/setup_{{ node_version }}.x | bash -
+      args:
+        creates: /etc/yum.repos.d/nodesource*.repo
+
+    - name: Install required packages
+      dnf:
+        name:
+          - nodejs
+          - git
+          - firewalld
+        state: present
+
+    - name: Create application user
+      user:
+        name: "{{ app_user }}"
+        system: yes
+        shell: /bin/false
+        home: "{{ app_dir }}"
+        create_home: no
+
+    - name: Create directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+      loop:
+        - "{{ app_dir }}"
+        - "{{ config_dir }}"
+        - "{{ log_dir }}"
+        - "{{ app_dir }}/queue"
+        - "{{ app_dir }}/certs"
+
+    - name: Clone/update repository
+      git:
+        repo: https://github.com/SilvioTormen/smtprelay.git
+        dest: "{{ app_dir }}"
+        version: main
+        force: yes
+      become_user: "{{ app_user }}"
+
+    - name: Install Node.js dependencies
+      npm:
+        path: "{{ app_dir }}"
+        production: yes
+      become_user: "{{ app_user }}"
+
+    - name: Copy configuration file
+      template:
+        src: config.yml.j2
+        dest: "{{ app_dir }}/config.yml"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+      notify: restart smtp-relay
+
+    - name: Copy environment file
+      template:
+        src: smtp-relay.env.j2
+        dest: "{{ config_dir }}/smtp-relay.env"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0600'
+      notify: restart smtp-relay
+
+    - name: Install systemd service
+      copy:
+        src: "{{ app_dir }}/smtp-relay.service"
+        dest: /etc/systemd/system/smtp-relay.service
+        remote_src: yes
+      notify: reload systemd
+
+    - name: Configure firewall for SMTP ports
+      firewalld:
+        port: "{{ item }}/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      loop:
+        - "25"
+        - "587"
+        - "465"
+
+    - name: Configure firewall for monitoring
+      firewalld:
+        port: "{{ item }}/tcp"
+        permanent: yes
+        state: enabled
+        immediate: yes
+      loop:
+        - "8080"  # Health check
+      when: enable_monitoring | default(true)
+
+    - name: Set up log rotation
+      copy:
+        content: |
+          {{ log_dir }}/*.log {
+              daily
+              rotate 30
+              compress
+              delaycompress
+              missingok
+              notifempty
+              create 0644 {{ app_user }} {{ app_user }}
+              sharedscripts
+              postrotate
+                  systemctl reload smtp-relay 2>/dev/null || true
+              endscript
+          }
+        dest: /etc/logrotate.d/smtp-relay
+
+    - name: Enable and start service
+      systemd:
+        name: smtp-relay
+        enabled: yes
+        state: started
+        daemon_reload: yes
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: restart smtp-relay
+      systemd:
+        name: smtp-relay
+        state: restarted
+
+---
+# Inventory file example (inventory/hosts.yml):
+# all:
+#   children:
+#     smtp_relay_servers:
+#       hosts:
+#         relay1:
+#           ansible_host: 192.168.1.10
+#           exchange_tenant_id: "your-tenant-id"
+#           exchange_client_id: "your-client-id"
+#           exchange_client_secret: !vault |
+#             $ANSIBLE_VAULT;1.1;AES256
+#             ...
