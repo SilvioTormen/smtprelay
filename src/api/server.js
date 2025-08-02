@@ -14,7 +14,9 @@ const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
 const deviceRoutes = require('./routes/devices');
 const queueRoutes = require('./routes/queue');
+const { router: ipWhitelistRoutes } = require('./routes/ip-whitelist');
 const { authenticate } = require('./middleware/auth');
+const { enforceFrontendAccess } = require('./middleware/ip-access');
 const { errorHandler } = require('./middleware/errorHandler');
 
 class APIServer {
@@ -29,6 +31,13 @@ class APIServer {
   }
 
   async initialize() {
+    // SECURITY: Configure Express to properly handle proxied requests
+    // Only enable if behind a reverse proxy
+    if (process.env.BEHIND_PROXY === 'true') {
+      // Trust only specific proxy IPs, never use 'true' for all
+      this.app.set('trust proxy', process.env.TRUSTED_PROXIES?.split(',') || ['127.0.0.1']);
+    }
+    
     // Redis for sessions and caching
     this.redisClient = createClient({
       host: this.config.redis?.host || 'localhost',
@@ -130,12 +139,16 @@ class APIServer {
       next();
     });
 
+    // IP Access Control Middleware (after logging, before routes)
+    this.app.use(enforceFrontendAccess);
+
     // API Routes
     this.app.use('/api/auth', authRoutes);
     this.app.use('/api/dashboard', authenticate, dashboardRoutes);
     this.app.use('/api/devices', authenticate, deviceRoutes);
     this.app.use('/api/queue', authenticate, queueRoutes);
-    this.app.use('/api/certificates', require('./routes/certificates'));
+    this.app.use('/api/certificates', authenticate, require('./routes/certificates'));
+    this.app.use('/api/ip-whitelist', authenticate, ipWhitelistRoutes);
 
     // Health Check (no auth required)
     this.app.get('/api/health', (req, res) => {

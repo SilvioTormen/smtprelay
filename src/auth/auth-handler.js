@@ -2,6 +2,7 @@ const ipRangeCheck = require('ip-range-check');
 const crypto = require('crypto');
 const fs = require('fs').promises;
 const path = require('path');
+const { checkSMTPAccess } = require('../api/middleware/ip-access');
 
 // Rate limiting for auth attempts
 const authAttempts = new Map();
@@ -154,16 +155,18 @@ class AuthHandler {
     
     this.logger.info(`Auth attempt from ${clientIP} as ${username} on port ${listener.port}`);
     
-    // Check if this IP needs auth at all
-    if (this.config.ip_whitelist?.no_auth_required) {
-      try {
-        if (ipRangeCheck(clientIP, this.config.ip_whitelist.no_auth_required)) {
-          this.logger.info(`IP ${clientIP} bypassed auth - whitelisted`);
-          return callback(null, { user: 'ip-whitelist' });
-        }
-      } catch (e) {
-        this.logger.error(`IP check failed: ${e.message}`);
-      }
+    // Check SMTP access using the new IP whitelist manager
+    const smtpAccess = checkSMTPAccess(clientIP);
+    
+    if (!smtpAccess.allowed) {
+      this.logger.warn(`IP ${clientIP} not allowed for SMTP relay`);
+      return callback(new Error('IP not authorized for SMTP relay'));
+    }
+    
+    // If no auth required for this IP, allow immediately
+    if (!smtpAccess.requiresAuth) {
+      this.logger.info(`IP ${clientIP} bypassed auth - whitelisted for no-auth access`);
+      return callback(null, { user: 'ip-whitelist-no-auth' });
     }
     
     // Validate against static users
