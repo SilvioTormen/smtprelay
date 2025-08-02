@@ -189,6 +189,8 @@ class APIServer {
     this.app.use('/api/queue', authenticate, queueRoutes);
     this.app.use('/api/certificates', authenticate, require('./routes/certificates'));
     this.app.use('/api/ip-whitelist', authenticate, ipWhitelistRoutes);
+    this.app.use('/api/analytics', authenticate, require('./routes/analytics'));
+    this.app.use('/api/sessions', authenticate, require('./routes/sessions'));
 
     // Health Check (no auth required)
     this.app.get('/api/health', (req, res) => {
@@ -282,6 +284,25 @@ class APIServer {
       socket.on('request:devices', async () => {
         const devices = await this.statsCollector.getDeviceList();
         socket.emit('devices:update', devices);
+      });
+
+      // Analytics real-time updates
+      socket.on('request:analytics', async (type) => {
+        const analyticsRoutes = require('./routes/analytics');
+        switch(type) {
+          case 'emailFlow':
+            socket.emit('analytics:emailFlow', generateMockData.emailFlow());
+            break;
+          case 'geoDistribution':
+            socket.emit('analytics:geoDistribution', generateMockData.geoDistribution());
+            break;
+          case 'timeSeries':
+            socket.emit('analytics:timeSeries', generateMockData.timeSeries());
+            break;
+          case 'deviceHealth':
+            socket.emit('analytics:deviceHealth', generateMockData.deviceHealth());
+            break;
+        }
       });
 
       socket.on('disconnect', () => {
