@@ -18,19 +18,26 @@ if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
 const ACCESS_TOKEN_EXPIRY = '15m'; // Short-lived access token
 const REFRESH_TOKEN_EXPIRY = '7d'; // Longer refresh token
 
-// Security: Authenticate middleware
+// Security: Authenticate middleware - Now supports cookies
 const authenticate = async (req, res, next) => {
   try {
-    // Check for token in Authorization header
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ 
-        error: 'Authentication required',
-        code: 'NO_TOKEN'
-      });
+    let token;
+    
+    // First, check for token in cookie (preferred)
+    if (req.cookies && req.cookies.accessToken) {
+      token = req.cookies.accessToken;
+    } 
+    // Fallback to Authorization header for backward compatibility (will be removed)
+    else {
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ 
+          error: 'Authentication required',
+          code: 'NO_TOKEN'
+        });
+      }
+      token = authHeader.substring(7);
     }
-
-    const token = authHeader.substring(7);
 
     // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);

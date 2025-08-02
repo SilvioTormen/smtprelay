@@ -3,6 +3,7 @@ const helmet = require('helmet');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const session = require('express-session');
+const cookieParser = require('cookie-parser');
 const RedisStore = require('connect-redis').default;
 const { createClient } = require('redis');
 const { Server } = require('socket.io');
@@ -51,7 +52,7 @@ class APIServer {
 
     await this.redisClient.connect();
 
-    // Security Headers with Helmet
+    // Security Headers with Helmet - ENHANCED
     this.app.use(helmet({
       contentSecurityPolicy: {
         directives: {
@@ -60,22 +61,61 @@ class APIServer {
           fontSrc: ["'self'", "https://fonts.gstatic.com"],
           scriptSrc: ["'self'", "'unsafe-inline'"],
           imgSrc: ["'self'", "data:", "https:"],
-          connectSrc: ["'self'", "ws:", "wss:"]
+          connectSrc: ["'self'", "ws:", "wss:"],
+          frameAncestors: ["'none'"], // Prevent clickjacking
+          formAction: ["'self'"], // Prevent form hijacking
+          upgradeInsecureRequests: [] // Force HTTPS
         }
       },
       hsts: {
         maxAge: 31536000,
         includeSubDomains: true,
         preload: true
-      }
+      },
+      permissionsPolicy: {
+        features: {
+          camera: ["'none'"],
+          microphone: ["'none'"],
+          geolocation: ["'none'"],
+          payment: ["'none'"],
+          usb: ["'none'"],
+          magnetometer: ["'none'"],
+          gyroscope: ["'none'"],
+          accelerometer: ["'none'"]
+        }
+      },
+      crossOriginEmbedderPolicy: true,
+      crossOriginOpenerPolicy: { policy: "same-origin" },
+      crossOriginResourcePolicy: { policy: "cross-origin" },
+      originAgentCluster: true,
+      referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+      xssFilter: true,
+      noSniff: true,
+      ieNoOpen: true,
+      frameguard: { action: 'deny' }
     }));
+    
+    // Additional custom security headers
+    this.app.use((req, res, next) => {
+      res.setHeader('X-Permitted-Cross-Domain-Policies', 'none');
+      res.setHeader('Expect-CT', 'enforce, max-age=86400');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Surrogate-Control', 'no-store');
+      next();
+    });
 
-    // CORS Configuration
+    // Cookie parser MUST come before other middleware
+    this.app.use(cookieParser());
+    
+    // CORS Configuration - Important: credentials: true for cookies
     this.app.use(cors({
       origin: this.config.api?.cors_origins || ['http://localhost:3000'],
-      credentials: true,
+      credentials: true, // CRITICAL for cookies to work cross-origin
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-      allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token']
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
+      exposedHeaders: ['Set-Cookie']
     }));
 
     // Rate Limiting - Prevent brute force
@@ -183,10 +223,23 @@ class APIServer {
       transports: ['websocket', 'polling']
     });
 
-    // WebSocket Authentication Middleware
+    // WebSocket Authentication Middleware - Updated for cookies
     this.io.use(async (socket, next) => {
       try {
-        const token = socket.handshake.auth.token;
+        // Parse cookies from handshake headers
+        const cookieHeader = socket.handshake.headers.cookie;
+        if (!cookieHeader) {
+          return next(new Error('Authentication required'));
+        }
+        
+        // Parse cookies manually (simple parser)
+        const cookies = {};
+        cookieHeader.split(';').forEach(cookie => {
+          const [name, value] = cookie.trim().split('=');
+          cookies[name] = value;
+        });
+        
+        const token = cookies.accessToken;
         if (!token) {
           return next(new Error('Authentication required'));
         }
