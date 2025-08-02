@@ -129,6 +129,7 @@ class APIServer {
     this.app.use('/api/dashboard', authenticate, dashboardRoutes);
     this.app.use('/api/devices', authenticate, deviceRoutes);
     this.app.use('/api/queue', authenticate, queueRoutes);
+    this.app.use('/api/certificates', require('./routes/certificates'));
 
     // Health Check (no auth required)
     this.app.get('/api/health', (req, res) => {
