@@ -1,6 +1,7 @@
-const { ClientSecretCredential } = require('@azure/identity');
+const { OAuth2FlowManager } = require('./oauth2-flows');
 const { Client } = require('@microsoft/microsoft-graph-client');
 const { TokenCredentialAuthenticationProvider } = require('@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials');
+const { ClientSecretCredential } = require('@azure/identity');
 
 class ExchangeAuth {
   constructor(config, logger) {
@@ -8,88 +9,114 @@ class ExchangeAuth {
     this.logger = logger;
     this.accessToken = null;
     this.tokenExpiry = null;
+    this.oauth2Manager = new OAuth2FlowManager(this.config, logger);
   }
   
   async getAuthConfig() {
     // Check which auth method to use
-    if (this.config.auth.method === 'oauth2') {
-      return await this.getOAuth2Config();
-    } else if (this.config.auth.method === 'basic') {
-      return this.getBasicAuthConfig();
-    } else {
-      throw new Error(`Unknown auth method: ${this.config.auth.method}`);
+    const method = this.config.auth.method;
+    
+    switch(method) {
+      case 'device_code':
+        return await this.getDeviceCodeConfig();
+      case 'authorization_code':
+        return await this.getAuthCodeConfig();
+      case 'client_credentials':
+        return await this.getClientCredentialsConfig();
+      default:
+        throw new Error(`Unknown auth method: ${method}. Supported: device_code, authorization_code, client_credentials`);
     }
   }
   
-  getBasicAuthConfig() {
-    // Simple username/password auth (using app password)
-    this.logger.info('Using basic auth for Exchange Online');
-    
-    return {
-      user: this.config.auth.username,
-      pass: this.config.auth.password
-    };
-  }
-  
-  async getOAuth2Config() {
-    this.logger.info('Using OAuth2 for Exchange Online');
+  async getDeviceCodeConfig() {
+    this.logger.info('Using Device Code Flow for Exchange Online');
     
     try {
-      // Get access token if needed
-      if (!this.accessToken || this.isTokenExpired()) {
-        await this.refreshAccessToken();
-      }
+      // Get token using device code flow
+      const token = await this.oauth2Manager.getValidToken('device_code');
       
       return {
         type: 'OAuth2',
-        user: this.config.auth.username || this.config.auth.client_id,
-        accessToken: this.accessToken
+        user: this.config.auth.send_as || this.config.auth.client_id,
+        accessToken: token
       };
     } catch (error) {
-      this.logger.error(`OAuth2 auth failed: ${error.message}`);
-      
-      // Fallback to basic auth if configured
-      if (this.config.auth.username && this.config.auth.password) {
-        this.logger.warn('Falling back to basic auth');
-        return this.getBasicAuthConfig();
-      }
-      
+      this.logger.error(`Device Code auth failed: ${error.message}`);
       throw error;
     }
   }
   
-  async refreshAccessToken() {
+  async getAuthCodeConfig() {
+    this.logger.info('Using Authorization Code Flow for Exchange Online');
+    
     try {
-      const credential = new ClientSecretCredential(
-        this.config.auth.tenant_id,
-        this.config.auth.client_id,
-        this.config.auth.client_secret
-      );
+      // Get token using authorization code flow
+      const token = await this.oauth2Manager.getValidToken('authorization_code');
       
-      // Get token for SMTP
-      const tokenResponse = await credential.getToken('https://outlook.office365.com/.default');
+      return {
+        type: 'OAuth2',
+        user: this.config.auth.send_as || this.config.auth.client_id,
+        accessToken: token
+      };
+    } catch (error) {
+      this.logger.error(`Authorization Code auth failed: ${error.message}`);
+      throw error;
+    }
+  }
+  
+  async getClientCredentialsConfig() {
+    this.logger.info('Using Client Credentials Flow for Exchange Online');
+    
+    try {
+      // Get token using client credentials flow
+      const token = await this.oauth2Manager.getValidToken('client_credentials');
       
-      this.accessToken = tokenResponse.token;
-      this.tokenExpiry = tokenResponse.expiresOnTimestamp;
-      
-      this.logger.info(`OAuth2 token obtained, expires at ${new Date(this.tokenExpiry)}`);
-      
-      // Schedule token refresh before expiry
-      const refreshTime = this.tokenExpiry - Date.now() - 300000; // 5 minutes before expiry
-      if (refreshTime > 0) {
-        setTimeout(() => this.refreshAccessToken(), refreshTime);
+      return {
+        type: 'OAuth2',
+        user: this.config.auth.send_as || this.config.auth.client_id,
+        accessToken: token
+      };
+    } catch (error) {
+      this.logger.error(`Client Credentials auth failed: ${error.message}`);
+      throw error;
+    }
+  }
+  
+  async initializeAuth() {
+    const method = this.config.auth.method;
+    
+    try {
+      switch(method) {
+        case 'device_code':
+          // Initialize device code flow for first-time setup
+          const result = await this.oauth2Manager.initializeDeviceCodeFlow();
+          this.logger.info('Device Code authentication completed successfully');
+          return result;
+          
+        case 'client_credentials':
+          // Initialize client credentials flow
+          const token = await this.oauth2Manager.getClientCredentialsToken();
+          this.logger.info('Client Credentials authentication completed successfully');
+          return token;
+          
+        default:
+          this.logger.info(`Auth method ${method} does not require initialization`);
+          return { success: true };
       }
     } catch (error) {
-      this.logger.error(`Failed to get OAuth2 token: ${error.message}`);
+      this.logger.error(`Authentication initialization failed: ${error.message}`);
       throw error;
     }
   }
   
-  isTokenExpired() {
-    if (!this.tokenExpiry) return true;
-    
-    // Check if token expires in next 5 minutes
-    return Date.now() > (this.tokenExpiry - 300000);
+  async setupAuthorizationCodeEndpoints(app) {
+    // Setup OAuth2 authorization code flow endpoints for web dashboard
+    await this.oauth2Manager.setupAuthorizationCodeFlow(app);
+  }
+  
+  async clearStoredTokens() {
+    // Clear all stored tokens (for logout or reset)
+    await this.oauth2Manager.clearTokens();
   }
   
   // Alternative: Use Microsoft Graph for sending (if SMTP is blocked)

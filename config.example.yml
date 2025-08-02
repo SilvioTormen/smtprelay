@@ -81,18 +81,33 @@ exchange_online:
   host: "smtp.office365.com"
   port: 587
   
-  # OAuth2 für Modern Auth (empfohlen)
+  # OAuth2 Authentication Methods (Choose one):
+  
+  # Option 1: Device Code Flow (Recommended for server setup)
+  # Perfect for headless servers - authenticate using code on another device
   auth:
-    method: "oauth2"
-    tenant_id: "your-tenant-id"
-    client_id: "your-client-id"
-    client_secret: "your-client-secret"
-    
-  # Alternative: App Password (einfacher für Test)
+    method: "device_code"  # Options: device_code, client_credentials, authorization_code
+    tenant_id: "your-tenant-id"  # Or "common" for multi-tenant
+    client_id: "your-client-id"  # Azure AD App ID
+    send_as: "relay@yourdomain.com"  # Optional: default sender
+  
+  # Option 2: Client Credentials Flow (For automated services)
+  # No user interaction required - uses application permissions
   # auth:
-  #   method: "basic"
-  #   username: "relay@yourdomain.com"
-  #   password: "app-specific-password"
+  #   method: "client_credentials"
+  #   tenant_id: "your-tenant-id"
+  #   client_id: "your-client-id"
+  #   client_secret: "your-client-secret"  # Required for this flow
+  #   send_as: "relay@yourdomain.com"  # Required: sender email
+  
+  # Option 3: Authorization Code Flow (For web dashboard)
+  # Interactive browser-based authentication
+  # auth:
+  #   method: "authorization_code"
+  #   tenant_id: "your-tenant-id"
+  #   client_id: "your-client-id"
+  #   client_secret: "your-client-secret"  # Optional for public clients
+  #   redirect_uri: "http://localhost:3001/api/auth/callback"
 
 # Relay Regeln
 relay:
