@@ -14,6 +14,8 @@ import Queue from './pages/Queue';
 import Settings from './pages/Settings';
 import Logs from './pages/Logs';
 import IPWhitelist from './pages/IPWhitelist';
+import Sessions from './pages/Sessions';
+import Analytics from './pages/Analytics';
 
 // Contexts
 import { AuthProvider } from './contexts/AuthContext';
@@ -191,6 +193,8 @@ function App() {
                       <Route path="logs" element={<Logs />} />
                       <Route path="settings" element={<Settings />} />
                       <Route path="ip-whitelist" element={<IPWhitelist />} />
+                      <Route path="sessions" element={<Sessions />} />
+                      <Route path="analytics" element={<Analytics />} />
                     </Route>
                   </Routes>
                 </AnimatePresence>

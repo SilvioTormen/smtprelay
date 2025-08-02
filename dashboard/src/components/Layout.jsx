@@ -11,7 +11,9 @@ import {
   Menu,
   X,
   Moon,
-  Sun
+  Sun,
+  BarChart3,
+  Lock
 } from 'lucide-react';
 
 const Layout = ({ darkMode, toggleDarkMode }) => {
@@ -21,10 +23,12 @@ const Layout = ({ darkMode, toggleDarkMode }) => {
 
   const menuItems = [
     { path: '/dashboard', name: 'Dashboard', icon: Home },
+    { path: '/analytics', name: 'Analytics', icon: BarChart3 },
     { path: '/devices', name: 'Devices', icon: Server },
     { path: '/queue', name: 'Queue', icon: Mail },
     { path: '/logs', name: 'Logs', icon: FileText },
     { path: '/ip-whitelist', name: 'IP Whitelist', icon: Shield },
+    { path: '/sessions', name: 'Sessions', icon: Lock },
     { path: '/settings', name: 'Settings', icon: Settings },
   ];
 
