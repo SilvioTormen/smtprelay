@@ -92,7 +92,7 @@ class APIServer {
     // Session Management
     this.app.use(session({
       store: new RedisStore({ client: this.redisClient }),
-      secret: process.env.SESSION_SECRET || require('crypto').randomBytes(64).toString('hex'),
+      secret: process.env.SESSION_SECRET,
       resave: false,
       saveUninitialized: false,
       cookie: {
@@ -171,7 +171,7 @@ class APIServer {
           return next(new Error('Authentication required'));
         }
 
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'change-this-secret');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
         socket.userId = decoded.userId;
         socket.role = decoded.role;
         

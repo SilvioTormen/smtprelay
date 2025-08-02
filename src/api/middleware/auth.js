@@ -2,8 +2,17 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcrypt');
 const speakeasy = require('speakeasy');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change-this-in-production';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'change-this-refresh-secret';
+// Load security configuration validator
+require('../../config/security');
+
+// JWT Secrets - validated by security config
+const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET;
+
+if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
+  console.error('❌ JWT secrets not configured properly!');
+  process.exit(1);
+}
 
 // Token expiry times
 const ACCESS_TOKEN_EXPIRY = '15m'; // Short-lived access token

@@ -42,18 +42,36 @@ const users = new Map([
   }]
 ]);
 
-// Initialize default passwords (only in dev)
+// Initialize default passwords securely
 const initializeUsers = async () => {
-  if (process.env.NODE_ENV !== 'production') {
-    const adminUser = users.get('admin');
-    adminUser.password = await hashPassword('Admin123!');
+  const adminUser = users.get('admin');
+  const helpdeskUser = users.get('helpdesk');
+  
+  if (process.env.NODE_ENV === 'production') {
+    // Production: Use environment variables
+    if (!process.env.ADMIN_INITIAL_PASSWORD || !process.env.HELPDESK_INITIAL_PASSWORD) {
+      console.error('❌ ADMIN_INITIAL_PASSWORD and HELPDESK_INITIAL_PASSWORD must be set in production!');
+      console.error('Run: node scripts/generate-secrets.js to generate secure configuration');
+      process.exit(1);
+    }
     
-    const helpdeskUser = users.get('helpdesk');
-    helpdeskUser.password = await hashPassword('Help123!');
+    adminUser.password = await hashPassword(process.env.ADMIN_INITIAL_PASSWORD);
+    helpdeskUser.password = await hashPassword(process.env.HELPDESK_INITIAL_PASSWORD);
     
-    console.log('Default users initialized (DEVELOPMENT ONLY)');
-    console.log('Admin: admin/Admin123!');
-    console.log('Helpdesk: helpdesk/Help123!');
+    console.log('✅ Users initialized with secure passwords from environment');
+  } else {
+    // Development: Generate random passwords
+    const crypto = require('crypto');
+    const adminPass = 'Dev_' + crypto.randomBytes(8).toString('hex');
+    const helpdeskPass = 'Dev_' + crypto.randomBytes(8).toString('hex');
+    
+    adminUser.password = await hashPassword(adminPass);
+    helpdeskUser.password = await hashPassword(helpdeskPass);
+    
+    console.log('🔐 Development users initialized with random passwords:');
+    console.log(`   Admin: admin / ${adminPass}`);
+    console.log(`   Helpdesk: helpdesk / ${helpdeskPass}`);
+    console.log('   (Save these passwords - they are randomly generated)');
   }
 };
 
