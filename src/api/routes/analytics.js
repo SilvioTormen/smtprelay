@@ -72,8 +72,8 @@ const generateMockData = {
 
   // Generate geographic distribution data
   geoDistribution: () => {
-    // Randomly decide if this is internal or external network
-    const isInternalNetwork = Math.random() > 0.5;
+    // For testing, always return external network data to see the world map
+    const isInternalNetwork = false; // Math.random() > 0.5;
     
     if (isInternalNetwork) {
       // Generate internal network data with subnets
