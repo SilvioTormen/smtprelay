@@ -13,6 +13,14 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+# Create required directories first
+echo "Creating required directories..."
+mkdir -p /opt/smtp-relay/config
+mkdir -p /opt/smtp-relay/logs
+mkdir -p /opt/smtp-relay/queue
+mkdir -p /opt/smtp-relay/certs
+mkdir -p /opt/smtp-relay/.temp
+
 # Set correct ownership for entire directory
 echo "Setting ownership for /opt/smtp-relay..."
 chown -R smtp-relay:smtp-relay /opt/smtp-relay

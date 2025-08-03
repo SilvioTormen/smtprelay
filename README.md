@@ -33,6 +33,29 @@ Ein einfacher, robuster SMTP Relay Service für Legacy-Geräte (Drucker, Scanner
 
 ## 🚀 Schnellstart
 
+### ⚡ Quick Install (Copy & Paste)
+
+```bash
+# Alles in einem - für Testzwecke
+git clone https://github.com/SilvioTormen/smtprelay.git && \
+cd smtprelay && \
+npm install && \
+npm install --prefix dashboard && \
+cd .. && \
+sudo useradd -r -s /bin/false smtp-relay 2>/dev/null && \
+sudo mv smtprelay /opt/smtp-relay && \
+sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay && \
+sudo mkdir -p /var/log/smtp-relay && \
+sudo chown smtp-relay:smtp-relay /var/log/smtp-relay && \
+cd /opt/smtp-relay && \
+sudo -u smtp-relay npm run setup && \
+sudo ./scripts/post-install.sh && \
+sudo cp smtp-relay.service /etc/systemd/system/ && \
+sudo systemctl daemon-reload && \
+sudo systemctl enable smtp-relay && \
+echo "✅ Installation complete! Run 'sudo -u smtp-relay npm run setup:auth' for OAuth2"
+```
+
 ### 1. Installation mit Ansible (Empfohlen für Production)
 
 #### Vorbereitung auf Control Node:
@@ -123,7 +146,7 @@ sudo dnf install -y nodejs
 sudo dnf install nodejs npm
 ```
 
-#### Schritt 2: Repository klonen und Setup
+#### Schritt 2: Repository klonen und Dependencies installieren
 
 ```bash
 # Repository klonen
@@ -133,41 +156,84 @@ cd smtprelay
 # Dependencies installieren (inkl. Dashboard)
 npm install
 npm install --prefix dashboard
+```
 
-# Initial Setup ausführen (generiert .env automatisch)
-npm run setup
+#### Schritt 3: Service-Benutzer und Zielverzeichnis vorbereiten
 
-# Non-Interactive Mode für Automatisierung:
-npm run setup -- --non-interactive
-
-# OAuth2 Setup Wizard ausführen (optional)
-npm run setup:auth
-
+```bash
 # Service-Benutzer anlegen
 sudo useradd -r -s /bin/false smtp-relay
 
-# Dateien verschieben und Berechtigungen setzen
-sudo mv ../smtprelay /opt/smtp-relay
+# Nach /opt verschieben (aus dem Parent-Verzeichnis!)
+cd ..
+sudo mv smtprelay /opt/smtp-relay
+
+# Berechtigungen setzen
 sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay
+
+# Log-Verzeichnis erstellen
 sudo mkdir -p /var/log/smtp-relay
 sudo chown smtp-relay:smtp-relay /var/log/smtp-relay
+```
 
-# Post-Installation Security (WICHTIG!)
-sudo /opt/smtp-relay/scripts/post-install.sh
+#### Schritt 4: Setup im Zielverzeichnis ausführen
 
-# Als Service installieren
+```bash
+# WICHTIG: Ins Zielverzeichnis wechseln
+cd /opt/smtp-relay
+
+# Setup als smtp-relay User ausführen (erstellt .env und Verzeichnisse)
+sudo -u smtp-relay npm run setup
+
+# Post-Installation Security Script (erstellt fehlende Verzeichnisse, setzt Berechtigungen)
+sudo ./scripts/post-install.sh
+
+# OAuth2 Setup (optional, interaktiv)
+sudo -u smtp-relay npm run setup:auth
+```
+
+#### Schritt 5: Systemd Service installieren und starten
+
+```bash
+# Service installieren
 sudo cp /opt/smtp-relay/smtp-relay.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable smtp-relay
+
+# Service starten
 sudo systemctl start smtp-relay
 
-# Status prüfen
+# Status prüfen (sollte "active (running)" zeigen)
 sudo systemctl status smtp-relay
-sudo journalctl -u smtp-relay -f
 
-# WICHTIG: Token-Datei Sicherheit
-sudo chown smtp-relay:smtp-relay /opt/smtp-relay/.tokens.json
-sudo chmod 600 /opt/smtp-relay/.tokens.json
+# Bei Problemen Logs prüfen
+sudo journalctl -u smtp-relay -f
+```
+
+#### ⚠️ Troubleshooting
+
+**Service startet nicht - "ENOENT: no such file or directory"**
+```bash
+# Fehlende Verzeichnisse manuell erstellen
+sudo mkdir -p /opt/smtp-relay/{config,logs,queue,certs,.temp}
+sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay
+sudo systemctl restart smtp-relay
+```
+
+**"Permission denied" Fehler**
+```bash
+# Berechtigungen neu setzen
+sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay
+sudo chmod 755 /opt/smtp-relay
+sudo /opt/smtp-relay/scripts/post-install.sh
+```
+
+**Token-Datei nach OAuth2 sichern**
+```bash
+# Wird automatisch durch post-install.sh gesichert
+# Manuelle Prüfung:
+ls -la /opt/smtp-relay/.tokens.json
+# Sollte zeigen: -rw------- 1 smtp-relay smtp-relay
 ```
 
 #### ⚠️ Sicherheitshinweise für OAuth2 Tokens
