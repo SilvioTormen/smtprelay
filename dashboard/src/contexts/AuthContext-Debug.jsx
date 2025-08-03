@@ -35,21 +35,11 @@ export const AuthProvider = ({ children }) => {
   const checkSession = async () => {
     console.log('[AuthContext] checkSession called');
     try {
-      // First check sessionStorage
-      const storedUserInfo = sessionStorage.getItem('userInfo');
-      if (storedUserInfo) {
-        console.log('[AuthContext] Found user in sessionStorage:', storedUserInfo);
-        const userInfo = JSON.parse(storedUserInfo);
-        setUser(userInfo);
-        setLoading(false);
-        return;
-      }
-
-      // Then try API
+      // Check session via API (cookies will be sent automatically)
       console.log('[AuthContext] Checking API /api/auth/me...');
       const response = await fetch(`${API_URL}/api/auth/me`, {
         method: 'GET',
-        credentials: 'include',
+        credentials: 'include', // IMPORTANT: Include cookies
         headers: {
           'Content-Type': 'application/json'
         }
@@ -61,8 +51,7 @@ export const AuthProvider = ({ children }) => {
         const userData = await response.json();
         console.log('[AuthContext] Got user from API:', userData);
         setUser(userData);
-        // Store in sessionStorage
-        sessionStorage.setItem('userInfo', JSON.stringify(userData));
+        // DO NOT store in sessionStorage - security risk!
       } else {
         console.log('[AuthContext] API returned non-OK status');
         setUser(null);
@@ -105,8 +94,8 @@ export const AuthProvider = ({ children }) => {
       // Set user from response
       setUser(data.user);
       
-      // Store in sessionStorage for persistence (user info only, NO TOKENS)
-      sessionStorage.setItem('userInfo', JSON.stringify(data.user));
+      // DO NOT store in sessionStorage - cookies handle auth securely
+      // sessionStorage is vulnerable to XSS attacks
       
       // Token is now in httpOnly cookie (secure) - NOT accessible via JS
       console.log('[AuthContext] Login successful, user set:', data.user);
