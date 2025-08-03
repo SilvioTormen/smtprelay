@@ -10,6 +10,7 @@ const { setupHealthCheck } = require('./lib/health');
 const { AuthHandler } = require('./auth/auth-handler');
 const { RelayHandler } = require('./handlers/relay-handler');
 const { QueueManager } = require('./lib/queue-manager');
+const APIServer = require('./api/server');
 
 // Load configuration
 const configPath = path.join(__dirname, '..', 'config.yml');
@@ -39,6 +40,15 @@ const logger = winston.createLogger({
 const authHandler = new AuthHandler(config, logger);
 const relayHandler = new RelayHandler(config, logger);
 const queueManager = new QueueManager(config, logger);
+
+// Initialize stats collector (needed for API server)
+const statsCollector = {
+  getStats: () => ({
+    connections: servers.length,
+    messagesProcessed: 0,
+    uptime: process.uptime()
+  })
+};
 
 // Create SMTP servers for each listener
 const servers = [];
@@ -174,5 +184,16 @@ function shutdown() {
 
 // Start queue processor
 queueManager.start();
+
+// Start API/Dashboard server
+const apiServer = new APIServer(config, logger, statsCollector);
+const dashboardPort = process.env.WEB_PORT || config.dashboard?.port || 3001;
+
+apiServer.initialize().then(() => {
+  apiServer.start(dashboardPort);
+  logger.info(`Dashboard server started on port ${dashboardPort}`);
+}).catch(err => {
+  logger.error('Failed to start dashboard server:', err);
+});
 
 logger.info('Legacy SMTP Relay started successfully');
