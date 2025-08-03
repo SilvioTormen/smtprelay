@@ -28,7 +28,8 @@ export const AuthProvider = ({ children }) => {
   // Check if user has an active session
   const checkSession = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/auth/session`, {
+      // Try to get current user from /api/auth/me endpoint
+      const response = await fetch(`${API_URL}/api/auth/me`, {
         method: 'GET',
         credentials: 'include', // CRITICAL: Include cookies
         headers: {
@@ -37,14 +38,26 @@ export const AuthProvider = ({ children }) => {
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
+        const userData = await response.json();
+        setUser(userData);
       } else {
-        setUser(null);
+        // Check sessionStorage for user info (safer than localStorage)
+        const storedUserInfo = sessionStorage.getItem('userInfo');
+        if (storedUserInfo) {
+          setUser(JSON.parse(storedUserInfo));
+        } else {
+          setUser(null);
+        }
       }
     } catch (err) {
       console.error('Session check failed:', err);
-      setUser(null);
+      // Check sessionStorage as fallback (safer)
+      const storedUserInfo = sessionStorage.getItem('userInfo');
+      if (storedUserInfo) {
+        setUser(JSON.parse(storedUserInfo));
+      } else {
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -75,8 +88,15 @@ export const AuthProvider = ({ children }) => {
         return { requiresTwoFactor: true };
       }
 
-      // Set user from response (tokens are now in cookies)
+      // Set user from response (tokens are now in httpOnly cookies)
       setUser(data.user);
+      
+      // Only store non-sensitive user info in sessionStorage (not localStorage)
+      // This is cleared when browser closes
+      sessionStorage.setItem('userInfo', JSON.stringify({
+        username: data.user.username,
+        role: data.user.role
+      }));
       
       // Navigate to dashboard
       navigate('/dashboard');
@@ -103,6 +123,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       // Always clear user and redirect
       setUser(null);
+      sessionStorage.removeItem('userInfo');
       navigate('/login');
     }
   };

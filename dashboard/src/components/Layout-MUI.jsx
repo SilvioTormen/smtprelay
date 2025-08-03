@@ -60,9 +60,18 @@ const Layout = ({ darkMode, toggleDarkMode }) => {
     setOpen(!open);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const handleLogout = async () => {
+    try {
+      // Call logout API
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    // Clear session and navigate
+    sessionStorage.clear();
     navigate('/login');
   };
 
