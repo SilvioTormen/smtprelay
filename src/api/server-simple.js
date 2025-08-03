@@ -71,11 +71,8 @@ class SimpleAPIServer {
       this.logger.info(`Serving dashboard from: ${dashboardPath}`);
     }
 
-    // Simple auth middleware
-    const authenticate = (req, res, next) => {
-      // For now, skip authentication to get it running
-      next();
-    };
+    // Import proper auth middleware
+    const { authenticate } = require('./middleware/auth-simple');
 
     // API Routes
     this.app.use('/api/auth', authRoutes);
