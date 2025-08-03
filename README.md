@@ -183,7 +183,11 @@ sudo chown smtp-relay:smtp-relay /var/log/smtp-relay
 cd /opt/smtp-relay
 
 # Setup als smtp-relay User ausführen (erstellt .env und Verzeichnisse)
+# Hinweis: Firewall-Check wird übersprungen wenn nicht als root
 sudo -u smtp-relay npm run setup
+
+# Optional: Als root für vollständigen Check (inkl. Firewall)
+# sudo npm run setup
 
 # Post-Installation Security Script (erstellt fehlende Verzeichnisse, setzt Berechtigungen)
 sudo ./scripts/post-install.sh

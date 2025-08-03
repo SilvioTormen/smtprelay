@@ -279,6 +279,19 @@ LOG_DIR=/var/log/smtp-relay
       // Generate self-signed certificate
       try {
         const certsDir = path.join(__dirname, '..', 'certs');
+        // Check if we have write permissions
+        if (!fs.existsSync(certsDir)) {
+          fs.mkdirSync(certsDir, { recursive: true });
+        }
+        
+        // Check if openssl is available
+        try {
+          execSync('which openssl', { stdio: 'ignore' });
+        } catch {
+          this.warnings.push('⚠️  OpenSSL not found - cannot generate certificates');
+          return;
+        }
+        
         execSync(`openssl req -x509 -newkey rsa:4096 -keyout ${keyPath} -out ${certPath} -days 365 -nodes -subj "/CN=smtp-relay.local"`, {
           cwd: certsDir,
           stdio: 'ignore'
@@ -286,6 +299,9 @@ LOG_DIR=/var/log/smtp-relay
         this.success.push('✅ Generated self-signed certificates');
       } catch (error) {
         this.warnings.push('⚠️  Could not generate certificates - TLS may not work');
+        if (error.code === 'EACCES') {
+          console.log('   Permission denied - run as the service user or fix permissions');
+        }
       }
     } else {
       this.success.push('✅ TLS certificates found');
@@ -298,15 +314,48 @@ LOG_DIR=/var/log/smtp-relay
       this.success.push('✅ Redis is running');
     } catch (error) {
       this.warnings.push('⚠️  Redis not running - sessions and caching disabled');
-      console.log('   Install Redis: sudo dnf install redis && sudo systemctl start redis');
+      if (process.getuid && process.getuid() === 0) {
+        console.log('   Install Redis: sudo dnf install redis && sudo systemctl start redis');
+      } else {
+        console.log('   Ask your admin to install Redis: dnf install redis && systemctl start redis');
+      }
     }
   }
 
   checkFirewall() {
+    // Skip firewall check if not running as root
+    if (process.getuid && process.getuid() !== 0) {
+      this.warnings.push('⚠️  Firewall check skipped (requires root privileges)');
+      console.log('   Run as root to check firewall: sudo npm run setup');
+      return;
+    }
+    
     try {
-      const result = execSync('sudo firewall-cmd --list-ports', { encoding: 'utf8' });
-      const openPorts = result.trim();
+      // First check if firewall-cmd exists
+      try {
+        execSync('which firewall-cmd', { stdio: 'ignore' });
+      } catch {
+        this.warnings.push('⚠️  firewalld not installed - firewall check skipped');
+        return;
+      }
       
+      // Try without sudo first (if we're already root)
+      let result;
+      try {
+        result = execSync('firewall-cmd --list-ports', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      } catch {
+        // If that fails and we're root, firewalld might not be running
+        try {
+          execSync('systemctl is-active firewalld', { stdio: 'ignore' });
+          // Firewalld is running but we can't access it
+          throw new Error('Cannot access firewall');
+        } catch {
+          this.warnings.push('⚠️  firewalld not running - firewall check skipped');
+          return;
+        }
+      }
+      
+      const openPorts = result.trim();
       const requiredPorts = ['25', '587', '465', '3001'];
       const missingPorts = [];
       
