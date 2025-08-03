@@ -72,31 +72,65 @@ const generateMockData = {
 
   // Generate geographic distribution data
   geoDistribution: () => {
-    const cities = [
-      { city: 'New York', country: 'USA', lat: 40.7128, lng: -74.0060 },
-      { city: 'London', country: 'UK', lat: 51.5074, lng: -0.1278 },
-      { city: 'Tokyo', country: 'Japan', lat: 35.6762, lng: 139.6503 },
-      { city: 'Sydney', country: 'Australia', lat: -33.8688, lng: 151.2093 },
-      { city: 'Berlin', country: 'Germany', lat: 52.5200, lng: 13.4050 },
-      { city: 'Singapore', country: 'Singapore', lat: 1.3521, lng: 103.8198 },
-      { city: 'Toronto', country: 'Canada', lat: 43.6532, lng: -79.3832 },
-      { city: 'Dubai', country: 'UAE', lat: 25.2048, lng: 55.2708 },
-      { city: 'São Paulo', country: 'Brazil', lat: -23.5505, lng: -46.6333 },
-      { city: 'Mumbai', country: 'India', lat: 19.0760, lng: 72.8777 }
-    ];
+    // Randomly decide if this is internal or external network
+    const isInternalNetwork = Math.random() > 0.5;
     
-    return cities.map(city => ({
-      ...city,
-      count: Math.floor(Math.random() * 500) + 50,
-      successRate: Math.floor(Math.random() * 5) + 95,
-      avgSize: `${Math.floor(Math.random() * 500) + 50}KB`,
-      avgDeliveryTime: `${Math.floor(Math.random() * 5) + 1}s`,
-      topRecipients: [
-        `user${Math.floor(Math.random() * 100)}@example.com`,
-        `admin${Math.floor(Math.random() * 10)}@company.com`,
-        `support@${city.city.toLowerCase()}.local`
-      ]
-    })).sort((a, b) => b.count - a.count);
+    if (isInternalNetwork) {
+      // Generate internal network data with subnets
+      const subnets = [
+        { subnet: '192.168.1.0/24', name: 'Office Floor 1', vlan: 'VLAN 10' },
+        { subnet: '192.168.2.0/24', name: 'Office Floor 2', vlan: 'VLAN 20' },
+        { subnet: '192.168.3.0/24', name: 'Server Room', vlan: 'VLAN 30' },
+        { subnet: '10.0.1.0/24', name: 'Warehouse', vlan: 'VLAN 40' },
+        { subnet: '10.0.2.0/24', name: 'Guest Network', vlan: 'VLAN 50' },
+        { subnet: '172.16.1.0/24', name: 'Management', vlan: 'VLAN 100' },
+        { subnet: '192.168.10.0/24', name: 'IoT Devices', vlan: 'VLAN 60' },
+        { subnet: '192.168.20.0/24', name: 'Printers', vlan: 'VLAN 70' }
+      ];
+      
+      const deviceTypes = ['printer', 'scanner', 'nas', 'camera', 'computer', 'iot'];
+      
+      return subnets.map(subnet => ({
+        country: subnet.name, // Using country field for subnet name
+        subnet: subnet.subnet,
+        vlan: subnet.vlan,
+        ip: subnet.subnet.replace('/24', `.${Math.floor(Math.random() * 250) + 1}`),
+        type: deviceTypes[Math.floor(Math.random() * deviceTypes.length)],
+        count: Math.floor(Math.random() * 500) + 50,
+        successRate: Math.floor(Math.random() * 5) + 95,
+        avgSize: `${Math.floor(Math.random() * 500) + 50}KB`,
+        avgDeliveryTime: `${Math.floor(Math.random() * 50) + 10}ms`,
+        deviceCount: Math.floor(Math.random() * 20) + 1
+      })).sort((a, b) => b.count - a.count);
+    } else {
+      // Generate external network data with countries
+      const cities = [
+        { city: 'New York', country: 'USA', lat: 40.7128, lng: -74.0060 },
+        { city: 'London', country: 'UK', lat: 51.5074, lng: -0.1278 },
+        { city: 'Tokyo', country: 'Japan', lat: 35.6762, lng: 139.6503 },
+        { city: 'Sydney', country: 'Australia', lat: -33.8688, lng: 151.2093 },
+        { city: 'Berlin', country: 'Germany', lat: 52.5200, lng: 13.4050 },
+        { city: 'Singapore', country: 'Singapore', lat: 1.3521, lng: 103.8198 },
+        { city: 'Toronto', country: 'Canada', lat: 43.6532, lng: -79.3832 },
+        { city: 'Dubai', country: 'UAE', lat: 25.2048, lng: 55.2708 },
+        { city: 'São Paulo', country: 'Brazil', lat: -23.5505, lng: -46.6333 },
+        { city: 'Mumbai', country: 'India', lat: 19.0760, lng: 72.8777 }
+      ];
+      
+      return cities.map(city => ({
+        ...city,
+        ip: `${Math.floor(Math.random() * 200) + 20}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`,
+        count: Math.floor(Math.random() * 500) + 50,
+        successRate: Math.floor(Math.random() * 5) + 95,
+        avgSize: `${Math.floor(Math.random() * 500) + 50}KB`,
+        avgDeliveryTime: `${Math.floor(Math.random() * 5) + 1}s`,
+        topRecipients: [
+          `user${Math.floor(Math.random() * 100)}@example.com`,
+          `admin${Math.floor(Math.random() * 10)}@company.com`,
+          `support@${city.city.toLowerCase()}.local`
+        ]
+      })).sort((a, b) => b.count - a.count);
+    }
   },
 
   // Generate time series data with anomalies
