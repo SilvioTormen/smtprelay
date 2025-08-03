@@ -191,25 +191,8 @@ class APIServer {
       unset: 'destroy' // Destroy session on unset
     }));
 
-    // Rate Limiting - Global
-    const globalLimiter = rateLimit({
-      windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 100, // Limit each IP to 100 requests per windowMs
-      message: 'Too many requests from this IP, please try again later.',
-      standardHeaders: true, // Return rate limit info in headers
-      legacyHeaders: false,
-    });
-    
-    // Rate Limiting - Auth endpoints (stricter)
-    const authLimiter = rateLimit({
-      windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 5, // Limit each IP to 5 login attempts per windowMs
-      message: 'Too many login attempts, please try again later.',
-      skipSuccessfulRequests: true, // Don't count successful logins
-    });
-    
-    // Apply global rate limiting to all routes
-    this.app.use('/api/', globalLimiter);
+    // Apply global rate limiting to all routes (already defined above)
+    // Note: limiter and authLimiter are already defined at lines 155-169
 
     // Body Parser
     this.app.use(express.json({ limit: '10mb' }));
