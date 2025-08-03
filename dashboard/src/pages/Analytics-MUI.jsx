@@ -38,7 +38,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext-Debug';
 import EmailFlowSankey from '../components/EmailFlowSankey-Simple';
-import GeoHeatMap from '../components/GeoHeatMap-Adaptive';
+import GeoHeatMap from '../components/GeoHeatMap-WorldMap';
 import TimeSeriesAnalytics from '../components/TimeSeriesAnalytics-MUI';
 import DeviceHealthMonitor from '../components/DeviceHealthMonitor-MUI';
 
