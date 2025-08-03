@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box,
-  Container,
   Paper,
   Typography,
   Tabs,
@@ -267,18 +266,19 @@ export default function Settings() {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box sx={{ p: 3 }}>
+      <Typography variant="h4" gutterBottom sx={{ mb: 3 }}>
         Settings
       </Typography>
 
-      <Paper sx={{ width: '100%', mb: 2 }}>
+      <Paper elevation={3} sx={{ width: '100%', mb: 2 }}>
         <Tabs
           value={tabValue}
           onChange={(e, newValue) => setTabValue(newValue)}
           indicatorColor="primary"
           textColor="primary"
           variant="fullWidth"
+          sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
           <Tab label="TLS Certificates" icon={<SecurityIcon />} />
           <Tab label="Email Settings" icon={<KeyIcon />} />
@@ -291,17 +291,20 @@ export default function Settings() {
         <Grid container spacing={3}>
           {/* Certificate Status Card */}
           <Grid item xs={12} md={6}>
-            <Card>
+            <Card elevation={3}>
               <CardContent>
                 <Box display="flex" alignItems="center" mb={2}>
-                  {getCertificateStatusIcon()}
-                  <Typography variant="h6" sx={{ ml: 1 }}>
-                    Certificate Status
-                  </Typography>
-                  <Box flexGrow={1} />
-                  <IconButton onClick={fetchCertificateStatus} size="small">
-                    <RefreshIcon />
-                  </IconButton>
+                  <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+                    {getCertificateStatusIcon()}
+                    <Typography variant="h6" sx={{ ml: 1 }}>
+                      Certificate Status
+                    </Typography>
+                  </Box>
+                  <Tooltip title="Refresh">
+                    <IconButton onClick={fetchCertificateStatus} size="small" color="primary">
+                      <RefreshIcon />
+                    </IconButton>
+                  </Tooltip>
                 </Box>
 
                 {loading && <LinearProgress sx={{ mb: 2 }} />}
@@ -317,6 +320,7 @@ export default function Settings() {
                         size="small"
                         label={certStatus.hasCertificate ? 'Active' : 'Missing'}
                         color={certStatus.hasCertificate ? 'success' : 'default'}
+                        variant={certStatus.hasCertificate ? 'filled' : 'outlined'}
                       />
                     </ListItem>
 
@@ -335,7 +339,7 @@ export default function Settings() {
                             secondary={certStatus.issuer || 'Unknown'}
                           />
                           {certStatus.isSelfSigned && (
-                            <Chip size="small" label="Self-Signed" color="warning" />
+                            <Chip size="small" label="Self-Signed" color="warning" variant="outlined" />
                           )}
                         </ListItem>
 
@@ -348,6 +352,7 @@ export default function Settings() {
                             size="small"
                             label={`${certStatus.daysUntilExpiry} days`}
                             color={getCertificateStatusColor()}
+                            variant="filled"
                           />
                         </ListItem>
 
@@ -394,7 +399,7 @@ export default function Settings() {
 
           {/* Certificate Actions Card */}
           <Grid item xs={12} md={6}>
-            <Card>
+            <Card elevation={3}>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
                   Certificate Management
@@ -406,6 +411,8 @@ export default function Settings() {
                     startIcon={<UploadIcon />}
                     onClick={() => setUploadDialog(true)}
                     fullWidth
+                    size="large"
+                    sx={{ textTransform: 'none', py: 1.5 }}
                   >
                     Upload Certificate
                   </Button>
@@ -415,6 +422,8 @@ export default function Settings() {
                     startIcon={<AddIcon />}
                     onClick={() => setGenerateDialog(true)}
                     fullWidth
+                    size="large"
+                    sx={{ textTransform: 'none', py: 1.5 }}
                   >
                     Generate Self-Signed
                   </Button>
@@ -425,16 +434,19 @@ export default function Settings() {
                     onClick={() => setLetsEncryptDialog(true)}
                     fullWidth
                     color="success"
+                    size="large"
+                    sx={{ textTransform: 'none', py: 1.5 }}
                   >
                     Generate Let's Encrypt
                   </Button>
                 </Box>
 
-                <Alert severity="info" sx={{ mt: 3 }}>
-                  <Typography variant="caption">
-                    After changing certificates, restart the service:
-                    <br />
-                    <code>sudo systemctl restart smtp-relay</code>
+                <Alert severity="info" sx={{ mt: 3 }} variant="outlined">
+                  <Typography variant="body2">
+                    <strong>Note:</strong> After changing certificates, restart the service:
+                    <Box component="code" sx={{ display: 'block', mt: 1, p: 1, bgcolor: 'grey.100', borderRadius: 1, fontFamily: 'monospace' }}>
+                      sudo systemctl restart smtp-relay
+                    </Box>
                   </Typography>
                 </Alert>
               </CardContent>
@@ -443,7 +455,7 @@ export default function Settings() {
 
           {/* Quick Tips */}
           <Grid item xs={12}>
-            <Alert severity="warning">
+            <Alert severity="warning" variant="filled" sx={{ borderRadius: 2 }}>
               <Typography variant="body2">
                 <strong>Important:</strong> Always backup your certificates before making changes. 
                 Certificate changes require a service restart to take effect.
@@ -627,6 +639,6 @@ export default function Settings() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </Box>
   );
 }

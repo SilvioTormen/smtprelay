@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const tokenService = require('../services/tokenService');
-const securityService = require('../services/securityService');
+// const securityService = require('../services/securityService'); // Temporarily disabled
 const { authenticate, authorize } = require('../middleware/auth');
 
 /**

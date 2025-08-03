@@ -24,6 +24,7 @@ import {
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
 import { useAuth } from '../contexts/AuthContext-Debug'; // Use debug version
+import MFADialog from '../components/MFADialog';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -33,14 +34,14 @@ const Login = () => {
   const [formData, setFormData] = useState({
     username: '',
     password: '',
-    totpToken: '',
     rememberMe: false,
   });
   
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [requires2FA, setRequires2FA] = useState(false);
+  const [mfaDialogOpen, setMfaDialogOpen] = useState(false);
+  const [mfaMethods, setMfaMethods] = useState([]);
 
   const handleChange = (e) => {
     const { name, value, checked } = e.target;
@@ -59,13 +60,14 @@ const Login = () => {
     try {
       const response = await login(
         formData.username,
-        formData.password,
-        formData.totpToken || undefined
+        formData.password
       );
 
       if (response.requiresTwoFactor) {
-        setRequires2FA(true);
-        enqueueSnackbar('Please enter your 2FA code', { variant: 'info' });
+        // Show MFA dialog
+        setMfaMethods(response.mfaMethods || []);
+        setMfaDialogOpen(true);
+        setLoading(false);
       } else if (response.success) {
         enqueueSnackbar('Login successful! Welcome back.', { variant: 'success' });
         navigate('/dashboard');
@@ -75,6 +77,27 @@ const Login = () => {
       enqueueSnackbar(err.message || 'Login failed', { variant: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMFAVerify = async (method, code) => {
+    setLoading(true);
+    try {
+      const response = await login(
+        formData.username,
+        formData.password,
+        method === 'totp' ? code : undefined,
+        method === 'fido2' ? { fido2Verified: true } : undefined
+      );
+
+      if (response.success) {
+        setMfaDialogOpen(false);
+        enqueueSnackbar('Login successful! Welcome back.', { variant: 'success' });
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      setLoading(false);
+      throw err;
     }
   };
 
@@ -218,33 +241,6 @@ const Login = () => {
               disabled={loading}
             />
 
-            {requires2FA && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                transition={{ duration: 0.3 }}
-              >
-                <TextField
-                  fullWidth
-                  name="totpToken"
-                  label="2FA Code"
-                  value={formData.totpToken}
-                  onChange={handleChange}
-                  margin="normal"
-                  placeholder="000000"
-                  inputProps={{ maxLength: 6 }}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <ShieldOutlined color="action" />
-                      </InputAdornment>
-                    ),
-                  }}
-                  disabled={loading}
-                  helperText="Enter the 6-digit code from your authenticator app"
-                />
-              </motion.div>
-            )}
 
             <FormControlLabel
               control={
@@ -308,6 +304,14 @@ const Login = () => {
           </form>
         </Card>
       </motion.div>
+
+      <MFADialog
+        open={mfaDialogOpen}
+        onClose={() => setMfaDialogOpen(false)}
+        mfaMethods={mfaMethods}
+        onVerify={handleMFAVerify}
+        username={formData.username}
+      />
     </Box>
   );
 };

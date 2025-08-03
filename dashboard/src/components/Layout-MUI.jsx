@@ -35,6 +35,7 @@ import {
   Brightness7 as LightModeIcon,
   Circle as CircleIcon,
   People as PeopleIcon,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 
@@ -232,6 +233,43 @@ const Layout = ({ darkMode, toggleDarkMode }) => {
         <Divider />
         
         <List>
+          <ListItem disablePadding sx={{ display: 'block' }}>
+            <ListItemButton
+              component={Link}
+              to="/profile"
+              selected={location.pathname === '/profile'}
+              sx={{
+                minHeight: 48,
+                justifyContent: open ? 'initial' : 'center',
+                px: 2.5,
+                '&.Mui-selected': {
+                  backgroundColor: 'action.selected',
+                },
+              }}
+            >
+              <Tooltip title={!open ? 'Profile' : ''} placement="right">
+                <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    mr: open ? 3 : 'auto',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <PersonIcon />
+                </ListItemIcon>
+              </Tooltip>
+              {open && (
+                <ListItemText 
+                  primary="Profile"
+                  primaryTypographyProps={{
+                    fontSize: 14,
+                    fontWeight: 'medium',
+                  }}
+                />
+              )}
+            </ListItemButton>
+          </ListItem>
+          
           <ListItem disablePadding sx={{ display: 'block' }}>
             <ListItemButton
               onClick={handleLogout}

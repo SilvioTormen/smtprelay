@@ -241,6 +241,7 @@ class APIServer {
     this.app.use('/api/sessions', require('./routes/sessions'));
     this.app.use('/api/logs', authenticate, enforceRBAC, require('./routes/logs'));
     this.app.use('/api/users', require('./routes/users'));
+    this.app.use('/api/mfa', require('./routes/mfa'));
 
     // Health Check (no auth required)
     this.app.get('/api/health', (req, res) => {

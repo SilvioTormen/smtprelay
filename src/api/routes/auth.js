@@ -15,88 +15,18 @@ const {
   sanitizeInput,
   checkUserRateLimit
 } = require('../middleware/auth');
+const userService = require('../services/userService');
 
 const router = express.Router();
 
 // Add cookie parser middleware
 router.use(cookieParser());
 
-// In-memory user store (replace with database in production)
-const users = new Map([
-  ['admin', {
-    id: '1',
-    username: 'admin',
-    password: null, // Will be set on first run
-    role: 'admin',
-    permissions: ['read', 'write', 'delete', 'configure', 'manage_users'],
-    twoFactorSecret: null,
-    twoFactorEnabled: false,
-    failedAttempts: 0,
-    lockedUntil: null
-  }],
-  ['helpdesk', {
-    id: '2',
-    username: 'helpdesk',
-    password: null,
-    role: 'viewer',
-    permissions: ['read'],
-    twoFactorSecret: null,
-    twoFactorEnabled: false,
-    failedAttempts: 0,
-    lockedUntil: null
-  }],
-  ['engineering', {
-    id: '3',
-    username: 'engineering',
-    password: null,
-    role: 'operator',
-    permissions: ['read', 'write'],
-    twoFactorSecret: null,
-    twoFactorEnabled: false,
-    failedAttempts: 0,
-    lockedUntil: null
-  }]
-]);
+// Initialize user service
+userService.initialize().catch(console.error);
 
-// Initialize default passwords securely
-const initializeUsers = async () => {
-  const adminUser = users.get('admin');
-  const helpdeskUser = users.get('helpdesk');
-  const engineeringUser = users.get('engineering');
-  
-  if (process.env.NODE_ENV === 'production') {
-    // Production: Use environment variables
-    if (!process.env.ADMIN_INITIAL_PASSWORD || !process.env.HELPDESK_INITIAL_PASSWORD || !process.env.ENGINEERING_INITIAL_PASSWORD) {
-      console.error('❌ ADMIN_INITIAL_PASSWORD, HELPDESK_INITIAL_PASSWORD and ENGINEERING_INITIAL_PASSWORD must be set in production!');
-      console.error('Run: node scripts/generate-secrets.js to generate secure configuration');
-      process.exit(1);
-    }
-    
-    adminUser.password = await hashPassword(process.env.ADMIN_INITIAL_PASSWORD);
-    helpdeskUser.password = await hashPassword(process.env.HELPDESK_INITIAL_PASSWORD);
-    engineeringUser.password = await hashPassword(process.env.ENGINEERING_INITIAL_PASSWORD);
-    
-    console.log('✅ Users initialized with secure passwords from environment');
-  } else {
-    // Development: Generate secure random passwords
-    const crypto = require('crypto');
-    const adminPass = 'Dev_' + crypto.randomBytes(8).toString('hex');
-    const helpdeskPass = 'Dev_' + crypto.randomBytes(8).toString('hex');
-    const engineeringPass = 'Dev_' + crypto.randomBytes(8).toString('hex');
-    
-    adminUser.password = await hashPassword(adminPass);
-    helpdeskUser.password = await hashPassword(helpdeskPass);
-    engineeringUser.password = await hashPassword(engineeringPass);
-    
-    console.log('🔐 Development users initialized with secure random passwords:');
-    console.log(`   Admin: admin / ${adminPass}`);
-    console.log(`   Helpdesk (viewer): helpdesk / ${helpdeskPass}`);
-    console.log(`   Engineering (operator): engineering / ${engineeringPass}`);
-    console.log('   📝 Save these passwords - they are randomly generated on each restart!');
-  }
-};
-
-initializeUsers();
+// Keep a reference to the old users map for backward compatibility during migration
+const users = new Map();
 
 // Login endpoint with comprehensive security
 router.post('/login',
@@ -128,8 +58,8 @@ router.post('/login',
         });
       }
 
-      // Get user
-      const user = users.get(sanitizedUsername);
+      // Get user from persistent storage
+      const user = await userService.getUser(sanitizedUsername);
       if (!user) {
         // Don't reveal if user exists
         await new Promise(resolve => setTimeout(resolve, 1000)); // Prevent timing attacks
@@ -140,7 +70,7 @@ router.post('/login',
       }
 
       // Check if account is locked
-      if (user.lockedUntil && user.lockedUntil > Date.now()) {
+      if (await userService.isAccountLocked(sanitizedUsername)) {
         const minutesLeft = Math.ceil((user.lockedUntil - Date.now()) / 60000);
         return res.status(423).json({ 
           error: `Account locked. Try again in ${minutesLeft} minutes.`,
@@ -151,47 +81,69 @@ router.post('/login',
       // Verify password
       const isValidPassword = await verifyPassword(password, user.password);
       if (!isValidPassword) {
-        // Increment failed attempts
-        user.failedAttempts++;
+        // Update failed attempts
+        await userService.updateLoginAttempts(sanitizedUsername, true);
         
-        // Exponential backoff for lockout
-        const lockoutDuration = securityService.calculateLockoutDuration(user.failedAttempts);
-        if (lockoutDuration > 0) {
-          user.lockedUntil = Date.now() + lockoutDuration;
-          return res.status(423).json({ 
-            error: 'Account locked due to multiple failed attempts',
-            code: 'ACCOUNT_LOCKED'
-          });
-        }
-
         return res.status(401).json({ 
           error: 'Invalid credentials',
           code: 'INVALID_CREDENTIALS',
-          remainingAttempts: 5 - user.failedAttempts
+          remainingAttempts: Math.max(0, 5 - (user.failedAttempts + 1))
         });
       }
 
-      // Check 2FA if enabled
-      if (user.twoFactorEnabled) {
-        if (!totpToken) {
+      // Check MFA if enabled (TOTP or FIDO2)
+      const mfaService = require('../services/mfaService');
+      const mfaData = await mfaService.getUserMFA(user.id);
+      
+      const hasFIDO2 = mfaData?.fido2Enabled && mfaData?.fido2Devices?.length > 0;
+      const hasTOTP = user.totpEnabled || mfaData?.totpEnabled;
+      
+      if (hasTOTP || hasFIDO2) {
+        // If no MFA token provided, request it
+        if (!totpToken && !req.body.fido2Response) {
+          const mfaMethods = [];
+          if (hasTOTP) mfaMethods.push('totp');
+          if (hasFIDO2) mfaMethods.push('fido2');
+          
           return res.status(200).json({
             requiresTwoFactor: true,
-            message: 'Please provide 2FA token'
+            mfaMethods: mfaMethods,
+            hasFIDO2: hasFIDO2,
+            hasTOTP: hasTOTP,
+            message: 'Please provide MFA verification'
           });
         }
 
-        const isValid2FA = verify2FAToken(user.twoFactorSecret, totpToken);
-        if (!isValid2FA) {
-          return res.status(401).json({ 
-            error: 'Invalid 2FA token',
-            code: 'INVALID_2FA'
-          });
+        // Verify TOTP if provided
+        if (totpToken && hasTOTP) {
+          const totpSecret = user.totpSecret || mfaData?.totpSecret;
+          const isValid2FA = verify2FAToken(totpSecret, totpToken);
+          if (!isValid2FA) {
+            return res.status(401).json({ 
+              error: 'Invalid 2FA token',
+              code: 'INVALID_2FA'
+            });
+          }
+        } 
+        // Check if FIDO2 was verified via session
+        else if (req.body.fido2Response && hasFIDO2) {
+          // Check if FIDO2 was verified in the session
+          if (!req.session.mfaVerified || req.session.mfaMethod !== 'fido2' || req.session.mfaUserId !== user.id) {
+            return res.status(401).json({ 
+              error: 'FIDO2 verification required',
+              code: 'FIDO2_NOT_VERIFIED'
+            });
+          }
+          // Clear MFA session after successful verification
+          delete req.session.mfaVerified;
+          delete req.session.mfaMethod;
+          delete req.session.mfaUserId;
+          delete req.session.fido2Verified;
         }
       }
 
       // Reset failed attempts on successful login
-      user.failedAttempts = 0;
-      user.lockedUntil = null;
+      await userService.updateLoginAttempts(sanitizedUsername, false);
 
       // Generate tokens
       const { accessToken, refreshToken } = generateTokens(user);
@@ -224,7 +176,7 @@ router.post('/login',
           username: user.username,
           role: user.role,
           permissions: user.permissions,
-          twoFactorEnabled: user.twoFactorEnabled
+          twoFactorEnabled: user.totpEnabled
         }
       });
     } catch (error) {
@@ -257,7 +209,7 @@ router.post('/refresh', async (req, res) => {
     }
 
     // Get user
-    const user = Array.from(users.values()).find(u => u.id === decoded.userId);
+    const user = await userService.getUserById(decoded.userId);
     if (!user) {
       return res.status(401).json({ 
         error: 'User not found',
@@ -401,17 +353,17 @@ router.post('/2fa/verify',
         });
       }
 
-      const user = users.get(req.user.username);
-      if (!user || !user.twoFactorSecret) {
+      const user = await userService.getUser(req.user.username);
+      if (!user || !user.totpSecret) {
         return res.status(400).json({ 
           error: '2FA not initialized',
           code: '2FA_NOT_INITIALIZED'
         });
       }
 
-      const isValid = verify2FAToken(user.twoFactorSecret, req.body.token);
+      const isValid = verify2FAToken(user.totpSecret, req.body.token);
       if (isValid) {
-        user.twoFactorEnabled = true;
+        await userService.enableTOTP(user.username, user.totpSecret);
         res.json({
           success: true,
           message: '2FA enabled successfully'
@@ -456,7 +408,7 @@ router.get('/session', async (req, res) => {
     }
     
     // Get user
-    const user = Array.from(users.values()).find(u => u.id === decoded.userId);
+    const user = await userService.getUserById(decoded.userId);
     if (!user) {
       return res.status(401).json({ 
         error: 'User not found',
@@ -471,7 +423,7 @@ router.get('/session', async (req, res) => {
         username: user.username,
         role: user.role,
         permissions: user.permissions,
-        twoFactorEnabled: user.twoFactorEnabled
+        twoFactorEnabled: user.totpEnabled
       }
     });
   } catch (error) {

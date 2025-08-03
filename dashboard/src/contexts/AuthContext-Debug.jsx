@@ -65,7 +65,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Login function
-  const login = async (username, password, totpToken = null) => {
+  const login = async (username, password, totpToken = null, fido2Data = null) => {
     console.log('[AuthContext] Login attempt for:', username);
     try {
       setError(null);
@@ -79,7 +79,8 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ 
           username, 
           password, 
-          ...(totpToken && { totpToken })  // Only include if totpToken exists
+          ...(totpToken && { totpToken }),  // Only include if totpToken exists
+          ...(fido2Data && { fido2Response: fido2Data })  // Include FIDO2 verification data
         })
       });
 
@@ -92,7 +93,12 @@ export const AuthProvider = ({ children }) => {
 
       // Check if 2FA is required
       if (data.requiresTwoFactor) {
-        return { requiresTwoFactor: true };
+        return { 
+          requiresTwoFactor: true,
+          mfaMethods: data.mfaMethods || [],
+          hasFIDO2: data.hasFIDO2,
+          hasTOTP: data.hasTOTP
+        };
       }
 
       // Set user from response
