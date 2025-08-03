@@ -23,7 +23,7 @@ import {
   ShieldOutlined,
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext-Debug'; // Use debug version
 
 const Login = () => {
   const navigate = useNavigate();
