@@ -85,7 +85,9 @@ const Login = () => {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        background: (theme) => theme.palette.mode === 'dark' 
+          ? 'linear-gradient(135deg, #1a1a2e 0%, #16213e 100%)'
+          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         padding: 2,
       }}
     >
@@ -99,8 +101,8 @@ const Login = () => {
             width: { xs: '100%', sm: 400 },
             p: 4,
             backdropFilter: 'blur(10px)',
-            background: 'rgba(255, 255, 255, 0.95)',
-            boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
+            backgroundColor: 'background.paper',
+            boxShadow: 3,
           }}
         >
           <Box sx={{ textAlign: 'center', mb: 3 }}>
@@ -141,6 +143,22 @@ const Login = () => {
                     <EmailOutlined color="action" />
                   </InputAdornment>
                 ),
+                sx: {
+                  backgroundColor: 'background.paper',
+                  '& input': {
+                    color: 'text.primary',
+                  }
+                }
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: 'divider',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'primary.main',
+                  },
+                }
               }}
               disabled={loading}
             />
@@ -171,6 +189,22 @@ const Login = () => {
                     </IconButton>
                   </InputAdornment>
                 ),
+                sx: {
+                  backgroundColor: 'background.paper',
+                  '& input': {
+                    color: 'text.primary',
+                  }
+                }
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: 'divider',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'primary.main',
+                  },
+                }
               }}
               disabled={loading}
             />
