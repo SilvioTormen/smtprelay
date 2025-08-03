@@ -98,7 +98,7 @@ class SimpleAPIServer {
     }
     
     try {
-      this.app.use('/api/sessions', authenticate, sessionsRoutes);
+      this.app.use('/api/sessions', sessionsRoutes);
     } catch (e) {
       this.logger.warn('Sessions route not available');
     }

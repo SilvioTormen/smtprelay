@@ -216,7 +216,7 @@ class APIServer {
     this.app.use('/api/certificates', authenticate, require('./routes/certificates'));
     this.app.use('/api/ip-whitelist', authenticate, ipWhitelistRoutes);
     this.app.use('/api/analytics', authenticate, require('./routes/analytics'));
-    this.app.use('/api/sessions', authenticate, require('./routes/sessions'));
+    this.app.use('/api/sessions', require('./routes/sessions'));
 
     // Health Check (no auth required)
     this.app.get('/api/health', (req, res) => {
