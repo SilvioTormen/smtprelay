@@ -24,8 +24,8 @@ const users = [
 // Initialize passwords
 const initializePasswords = async () => {
   try {
-    const adminPassword = process.env.ADMIN_INITIAL_PASSWORD || 'Admin@2025!Secure';
-    const helpdeskPassword = process.env.HELPDESK_INITIAL_PASSWORD || 'Helpdesk@2025!Secure';
+    const adminPassword = process.env.ADMIN_INITIAL_PASSWORD || 'admin123';
+    const helpdeskPassword = process.env.HELPDESK_INITIAL_PASSWORD || 'helpdesk123';
     
     users[0].password = await bcrypt.hash(adminPassword, 10);
     users[1].password = await bcrypt.hash(helpdeskPassword, 10);
@@ -89,12 +89,16 @@ router.post('/login', async (req, res) => {
     );
     
     // Set cookie - SECURE WAY
-    res.cookie('token', token, {
+    const cookieOptions = {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production', // HTTPS only in production
-      sameSite: 'strict', // CSRF protection
-      maxAge: 24 * 60 * 60 * 1000 // 24 hours
-    });
+      sameSite: 'lax', // Changed from 'strict' to allow cross-origin requests
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      path: '/' // Ensure cookie is available for all paths
+    };
+    
+    console.log('[AUTH-SIMPLE] Setting token cookie with options:', cookieOptions);
+    res.cookie('token', token, cookieOptions);
     
     // IMPORTANT: Set session for server-side auth
     if (req.session) {
