@@ -1,32 +1,75 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Security as Shield,
-  Add as Plus,
-  Delete as Trash2,
-  Download,
-  Upload,
-  Search,
-  Settings,
-  Error as AlertCircle,
-  CheckCircle,
-  Cancel as XCircle,
-  Description as FileText,
-  Public as Globe,
-  Mail,
-  Lock,
-  LockOpen as Unlock,
-  History,
-  ContentCopy as Copy,
-  Visibility as Eye,
-  VisibilityOff as EyeOff
+  Box,
+  Paper,
+  Typography,
+  Button,
+  IconButton,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Card,
+  CardContent,
+  Grid,
+  Chip,
+  Alert,
+  AlertTitle,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tabs,
+  Tab,
+  LinearProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Switch,
+  FormControlLabel,
+  InputAdornment,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Tooltip,
+  Badge
+} from '@mui/material';
+import {
+  Security as ShieldIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
+  Download as DownloadIcon,
+  Upload as UploadIcon,
+  Search as SearchIcon,
+  Settings as SettingsIcon,
+  Error as AlertCircleIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as CancelIcon,
+  Public as GlobeIcon,
+  Mail as MailIcon,
+  Lock as LockIcon,
+  LockOpen as UnlockIcon,
+  History as HistoryIcon,
+  ContentCopy as CopyIcon,
+  Visibility as EyeIcon,
+  VisibilityOff as EyeOffIcon,
+  FileDownload,
+  FileUpload,
+  Block as BlockIcon,
+  VpnKey as KeyIcon
 } from '@mui/icons-material';
+import { enqueueSnackbar } from 'notistack';
 
 const IPWhitelist = () => {
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState('smtp');
+  const [activeTab, setActiveTab] = useState(0);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showTestModal, setShowTestModal] = useState(false);
@@ -59,14 +102,14 @@ const IPWhitelist = () => {
       setConfig(data.config);
       setLoading(false);
     } catch (err) {
-      setError(err.message);
+      enqueueSnackbar(err.message, { variant: 'error' });
       setLoading(false);
     }
   };
 
   const handleAddIP = async () => {
     if (!newIP || !selectedCategory || !selectedSubcategory) {
-      setError('Please fill all fields');
+      enqueueSnackbar('Please fill all fields', { variant: 'error' });
       return;
     }
 
@@ -88,12 +131,12 @@ const IPWhitelist = () => {
       
       if (!response.ok) throw new Error(data.error);
       
-      setSuccess(`Added ${data.ip} successfully`);
+      enqueueSnackbar(`Added ${data.ip} successfully`, { variant: 'success' });
       setShowAddModal(false);
       setNewIP('');
       loadConfig();
     } catch (err) {
-      setError(err.message);
+      enqueueSnackbar(err.message, { variant: 'error' });
     }
   };
 
@@ -114,16 +157,16 @@ const IPWhitelist = () => {
       
       if (!response.ok) throw new Error(data.error);
       
-      setSuccess(`Removed ${ip} successfully`);
+      enqueueSnackbar(`Removed ${ip} successfully`, { variant: 'success' });
       loadConfig();
     } catch (err) {
-      setError(err.message);
+      enqueueSnackbar(err.message, { variant: 'error' });
     }
   };
 
   const handleImport = async () => {
     if (!importText || !selectedCategory || !selectedSubcategory) {
-      setError('Please fill all fields');
+      enqueueSnackbar('Please fill all fields', { variant: 'error' });
       return;
     }
 
@@ -148,12 +191,15 @@ const IPWhitelist = () => {
       if (!response.ok) throw new Error(data.error);
       
       const { results } = data;
-      setSuccess(`Import complete: ${results.success.length} added, ${results.skipped.length} skipped, ${results.failed.length} failed`);
+      enqueueSnackbar(
+        `Import complete: ${results.success.length} added, ${results.skipped.length} skipped, ${results.failed.length} failed`,
+        { variant: 'success' }
+      );
       setShowImportModal(false);
       setImportText('');
       loadConfig();
     } catch (err) {
-      setError(err.message);
+      enqueueSnackbar(err.message, { variant: 'error' });
     }
   };
 
@@ -180,15 +226,15 @@ const IPWhitelist = () => {
       a.click();
       URL.revokeObjectURL(url);
       
-      setSuccess(`Exported ${data.count} IPs`);
+      enqueueSnackbar(`Exported ${data.count} IPs`, { variant: 'success' });
     } catch (err) {
-      setError(err.message);
+      enqueueSnackbar(err.message, { variant: 'error' });
     }
   };
 
   const handleTestIP = async () => {
     if (!testIP) {
-      setError('Please enter an IP to test');
+      enqueueSnackbar('Please enter an IP to test', { variant: 'error' });
       return;
     }
 
@@ -208,7 +254,7 @@ const IPWhitelist = () => {
       
       setTestResults(data);
     } catch (err) {
-      setError(err.message);
+      enqueueSnackbar(err.message, { variant: 'error' });
       setTestResults(null);
     }
   };
@@ -228,10 +274,10 @@ const IPWhitelist = () => {
       
       if (!response.ok) throw new Error(data.error);
       
-      setSuccess('Settings updated successfully');
+      enqueueSnackbar('Settings updated successfully', { variant: 'success' });
       loadConfig();
     } catch (err) {
-      setError(err.message);
+      enqueueSnackbar(err.message, { variant: 'error' });
     }
   };
 
@@ -251,7 +297,7 @@ const IPWhitelist = () => {
       setAuditLogs(data.logs);
       setShowAuditModal(true);
     } catch (err) {
-      setError(err.message);
+      enqueueSnackbar(err.message, { variant: 'error' });
     }
   };
 
@@ -262,778 +308,819 @@ const IPWhitelist = () => {
 
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
-    setSuccess('Copied to clipboard');
+    enqueueSnackbar('Copied to clipboard', { variant: 'info' });
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setActiveTab(newValue);
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
+      <Box sx={{ p: 3 }}>
+        <LinearProgress />
+      </Box>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <Box sx={{ p: 3 }}>
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Shield className="h-8 w-8 text-blue-600" />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">IP Whitelist Management</h1>
-              <p className="text-gray-600">Control access to SMTP relay and dashboard</p>
-            </div>
-          </div>
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setShowTestModal(true)}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center space-x-2"
-            >
-              <Search className="h-4 w-4" />
-              <span>Test IP</span>
-            </button>
-            <button
-              onClick={loadAuditLog}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center space-x-2"
-            >
-              <History className="h-4 w-4" />
-              <span>Audit Log</span>
-            </button>
-          </div>
-        </div>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box display="flex" alignItems="center" gap={2}>
+          <ShieldIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+          <Box>
+            <Typography variant="h4" component="h1">
+              IP Whitelist Management
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Control access to SMTP relay and dashboard
+            </Typography>
+          </Box>
+        </Box>
+        <Box display="flex" gap={1}>
+          <Button
+            variant="outlined"
+            startIcon={<SearchIcon />}
+            onClick={() => setShowTestModal(true)}
+          >
+            Test IP
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<HistoryIcon />}
+            onClick={loadAuditLog}
+          >
+            Audit Log
+          </Button>
+        </Box>
+      </Box>
 
-        {/* Statistics */}
-        {config && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <Mail className="h-5 w-5 text-blue-600" />
-                <span className="text-2xl font-bold text-blue-600">
-                  {config.smtp_relay.no_auth_required.length + config.smtp_relay.auth_required.length}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">SMTP Allowed IPs</p>
-            </div>
-            <div className="bg-green-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <Globe className="h-5 w-5 text-green-600" />
-                <span className="text-2xl font-bold text-green-600">
-                  {config.frontend_access.allowed.length}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">Frontend Allowed IPs</p>
-            </div>
-            <div className="bg-red-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <XCircle className="h-5 w-5 text-red-600" />
-                <span className="text-2xl font-bold text-red-600">
-                  {config.blacklist.blocked.length}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">Blacklisted IPs</p>
-            </div>
-            <div className="bg-purple-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                {config.settings.enforce_frontend_whitelist ? (
-                  <Lock className="h-5 w-5 text-purple-600" />
-                ) : (
-                  <Unlock className="h-5 w-5 text-purple-600" />
-                )}
-                <span className="text-sm font-medium text-purple-600">
-                  {config.settings.enforce_frontend_whitelist ? 'Enforced' : 'Open'}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">Frontend Access</p>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Alerts */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center space-x-3">
-          <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-          <span className="text-red-800">{error}</span>
-          <button onClick={() => setError('')} className="ml-auto text-red-600 hover:text-red-800">
-            <XCircle className="h-5 w-5" />
-          </button>
-        </div>
+      {/* Statistics Cards */}
+      {config && (
+        <Grid container spacing={3} mb={3}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={3}>
+              <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="h4" color="primary">
+                      {config.smtp_relay.no_auth_required.length + config.smtp_relay.auth_required.length}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      SMTP Allowed IPs
+                    </Typography>
+                  </Box>
+                  <MailIcon sx={{ fontSize: 32, color: 'primary.main', opacity: 0.3 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={3}>
+              <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="h4" color="success.main">
+                      {config.frontend_access.allowed.length}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Frontend Allowed IPs
+                    </Typography>
+                  </Box>
+                  <GlobeIcon sx={{ fontSize: 32, color: 'success.main', opacity: 0.3 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={3}>
+              <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="h4" color="error">
+                      {config.blacklist.blocked.length}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Blacklisted IPs
+                    </Typography>
+                  </Box>
+                  <BlockIcon sx={{ fontSize: 32, color: 'error.main', opacity: 0.3 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+          <Grid item xs={12} sm={6} md={3}>
+            <Card elevation={3}>
+              <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="h4" color="secondary">
+                      {config.settings.enforce_frontend_whitelist ? 'Enforced' : 'Open'}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Frontend Access
+                    </Typography>
+                  </Box>
+                  {config.settings.enforce_frontend_whitelist ? (
+                    <LockIcon sx={{ fontSize: 32, color: 'secondary.main', opacity: 0.3 }} />
+                  ) : (
+                    <UnlockIcon sx={{ fontSize: 32, color: 'secondary.main', opacity: 0.3 }} />
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
       )}
 
-      {success && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center space-x-3">
-          <CheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-          <span className="text-green-800">{success}</span>
-          <button onClick={() => setSuccess('')} className="ml-auto text-green-600 hover:text-green-800">
-            <XCircle className="h-5 w-5" />
-          </button>
-        </div>
-      )}
+      {/* Main Content */}
+      <Paper elevation={3}>
+        <Tabs value={activeTab} onChange={handleTabChange} sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tab icon={<MailIcon />} label="SMTP Relay" iconPosition="start" />
+          <Tab icon={<GlobeIcon />} label="Frontend Access" iconPosition="start" />
+          <Tab icon={<BlockIcon />} label="Blacklist" iconPosition="start" />
+          <Tab icon={<SettingsIcon />} label="Settings" iconPosition="start" />
+        </Tabs>
 
-      {/* Tabs */}
-      <div className="bg-white rounded-lg shadow-sm">
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8 px-6">
-            {[
-              { id: 'smtp', label: 'SMTP Relay', icon: Mail },
-              { id: 'frontend', label: 'Frontend Access', icon: Globe },
-              { id: 'blacklist', label: 'Blacklist', icon: XCircle },
-              { id: 'settings', label: 'Settings', icon: Settings }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`
-                  py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2
-                  ${activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }
-                `}
-              >
-                <tab.icon className="h-4 w-4" />
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        <div className="p-6">
-          {/* Search Bar */}
-          {activeTab !== 'settings' && (
-            <div className="mb-4 flex items-center space-x-4">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  placeholder="Search IPs..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <Search className="absolute left-3 top-2.5 h-5 w-5 text-gray-400" />
-              </div>
-              <button
+        <Box sx={{ p: 3 }}>
+          {/* Search and Actions Bar */}
+          {activeTab !== 3 && (
+            <Box display="flex" gap={2} mb={3}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                placeholder="Search IPs..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
                 onClick={() => {
                   setSelectedCategory(
-                    activeTab === 'smtp' ? 'smtp_relay' :
-                    activeTab === 'frontend' ? 'frontend_access' :
+                    activeTab === 0 ? 'smtp_relay' :
+                    activeTab === 1 ? 'frontend_access' :
                     'blacklist'
                   );
                   setSelectedSubcategory(
-                    activeTab === 'smtp' ? 'no_auth_required' :
-                    activeTab === 'frontend' ? 'allowed' :
+                    activeTab === 0 ? 'no_auth_required' :
+                    activeTab === 1 ? 'allowed' :
                     'blocked'
                   );
                   setShowAddModal(true);
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
               >
-                <Plus className="h-4 w-4" />
-                <span>Add IP</span>
-              </button>
-              <button
+                Add IP
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<UploadIcon />}
                 onClick={() => {
                   setSelectedCategory(
-                    activeTab === 'smtp' ? 'smtp_relay' :
-                    activeTab === 'frontend' ? 'frontend_access' :
+                    activeTab === 0 ? 'smtp_relay' :
+                    activeTab === 1 ? 'frontend_access' :
                     'blacklist'
                   );
                   setSelectedSubcategory(
-                    activeTab === 'smtp' ? 'no_auth_required' :
-                    activeTab === 'frontend' ? 'allowed' :
+                    activeTab === 0 ? 'no_auth_required' :
+                    activeTab === 1 ? 'allowed' :
                     'blocked'
                   );
                   setShowImportModal(true);
                 }}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center space-x-2"
-              >
-                <Upload className="h-4 w-4" />
-                <span>Import</span>
-              </button>
-            </div>
-          )}
-
-          {/* Content based on active tab */}
-          {config && activeTab === 'smtp' && (
-            <div className="space-y-6">
-              {/* No Auth Required */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold flex items-center space-x-2">
-                    <Unlock className="h-5 w-5 text-green-600" />
-                    <span>No Authentication Required</span>
-                    <span className="text-sm text-gray-500">({config.smtp_relay.no_auth_required.length})</span>
-                  </h3>
-                  <button
-                    onClick={() => handleExport('smtp_relay', 'no_auth_required')}
-                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-                  >
-                    <Download className="h-4 w-4" />
-                    <span>Export</span>
-                  </button>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  {filterIPs(config.smtp_relay.no_auth_required).length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {filterIPs(config.smtp_relay.no_auth_required).map(ip => (
-                        <div key={ip} className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-gray-200">
-                          <span className="font-mono text-sm">{ip}</span>
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => copyToClipboard(ip)}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleRemoveIP('smtp_relay', 'no_auth_required', ip)}
-                              className="text-red-400 hover:text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">No IPs configured</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Auth Required */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-lg font-semibold flex items-center space-x-2">
-                    <Lock className="h-5 w-5 text-yellow-600" />
-                    <span>Authentication Required</span>
-                    <span className="text-sm text-gray-500">({config.smtp_relay.auth_required.length})</span>
-                  </h3>
-                  <button
-                    onClick={() => handleExport('smtp_relay', 'auth_required')}
-                    className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-                  >
-                    <Download className="h-4 w-4" />
-                    <span>Export</span>
-                  </button>
-                </div>
-                <div className="bg-gray-50 rounded-lg p-4">
-                  {filterIPs(config.smtp_relay.auth_required).length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {filterIPs(config.smtp_relay.auth_required).map(ip => (
-                        <div key={ip} className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-gray-200">
-                          <span className="font-mono text-sm">{ip}</span>
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => copyToClipboard(ip)}
-                              className="text-gray-400 hover:text-gray-600"
-                            >
-                              <Copy className="h-4 w-4" />
-                            </button>
-                            <button
-                              onClick={() => handleRemoveIP('smtp_relay', 'auth_required', ip)}
-                              className="text-red-400 hover:text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500 text-center py-4">No IPs configured</p>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {config && activeTab === 'frontend' && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold flex items-center space-x-2">
-                  <Globe className="h-5 w-5 text-blue-600" />
-                  <span>Allowed IPs</span>
-                  <span className="text-sm text-gray-500">({config.frontend_access.allowed.length})</span>
-                </h3>
-                <button
-                  onClick={() => handleExport('frontend_access', 'allowed')}
-                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Export</span>
-                </button>
-              </div>
-              
-              {!config.settings.enforce_frontend_whitelist && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
-                  <div className="flex items-center space-x-2">
-                    <AlertCircle className="h-5 w-5 text-yellow-600" />
-                    <span className="text-yellow-800">
-                      Frontend whitelist is not enforced. All IPs can access the dashboard.
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                {filterIPs(config.frontend_access.allowed).length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {filterIPs(config.frontend_access.allowed).map(ip => (
-                      <div key={ip} className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-gray-200">
-                        <span className="font-mono text-sm">{ip}</span>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => copyToClipboard(ip)}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleRemoveIP('frontend_access', 'allowed', ip)}
-                            className="text-red-400 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-4">No IPs configured</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {config && activeTab === 'blacklist' && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold flex items-center space-x-2">
-                  <XCircle className="h-5 w-5 text-red-600" />
-                  <span>Blocked IPs</span>
-                  <span className="text-sm text-gray-500">({config.blacklist.blocked.length})</span>
-                </h3>
-                <button
-                  onClick={() => handleExport('blacklist', 'blocked')}
-                  className="text-sm text-blue-600 hover:text-blue-800 flex items-center space-x-1"
-                >
-                  <Download className="h-4 w-4" />
-                  <span>Export</span>
-                </button>
-              </div>
-
-              <div className="bg-gray-50 rounded-lg p-4">
-                {filterIPs(config.blacklist.blocked).length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {filterIPs(config.blacklist.blocked).map(ip => (
-                      <div key={ip} className="flex items-center justify-between bg-white rounded-lg px-4 py-2 border border-gray-200">
-                        <span className="font-mono text-sm">{ip}</span>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            onClick={() => copyToClipboard(ip)}
-                            className="text-gray-400 hover:text-gray-600"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleRemoveIP('blacklist', 'blocked', ip)}
-                            className="text-red-400 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-center py-4">No IPs blacklisted</p>
-                )}
-              </div>
-            </div>
-          )}
-
-          {config && activeTab === 'settings' && (
-            <div className="space-y-6">
-              <div className="bg-gray-50 rounded-lg p-6">
-                <h3 className="text-lg font-semibold mb-4">Access Control Settings</h3>
-                
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Enforce Frontend Whitelist</label>
-                      <p className="text-sm text-gray-500">Only allow whitelisted IPs to access the dashboard</p>
-                    </div>
-                    <button
-                      onClick={() => handleSettingsUpdate('enforce_frontend_whitelist', !config.settings.enforce_frontend_whitelist)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        config.settings.enforce_frontend_whitelist ? 'bg-blue-600' : 'bg-gray-200'
-                      }`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        config.settings.enforce_frontend_whitelist ? 'translate-x-6' : 'translate-x-1'
-                      }`} />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Log Denied Attempts</label>
-                      <p className="text-sm text-gray-500">Record all denied access attempts in audit log</p>
-                    </div>
-                    <button
-                      onClick={() => handleSettingsUpdate('log_denied_attempts', !config.settings.log_denied_attempts)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                        config.settings.log_denied_attempts ? 'bg-blue-600' : 'bg-gray-200'
-                      }`}
-                    >
-                      <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        config.settings.log_denied_attempts ? 'translate-x-6' : 'translate-x-1'
-                      }`} />
-                    </button>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <label className="text-sm font-medium text-gray-700">Auto-block After Failures</label>
-                      <p className="text-sm text-gray-500">Number of failed attempts before auto-blacklisting</p>
-                    </div>
-                    <input
-                      type="number"
-                      value={config.settings.auto_block_after_failures}
-                      onChange={(e) => handleSettingsUpdate('auto_block_after_failures', parseInt(e.target.value))}
-                      className="w-20 px-3 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      min="0"
-                      max="100"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
-                <h4 className="font-semibold text-blue-900 mb-2">IP Format Examples</h4>
-                <div className="space-y-2 text-sm text-blue-800">
-                  <div><code className="bg-blue-100 px-2 py-1 rounded">192.168.1.1</code> - Single IP</div>
-                  <div><code className="bg-blue-100 px-2 py-1 rounded">10.0.0.0/24</code> - CIDR notation (256 IPs)</div>
-                  <div><code className="bg-blue-100 px-2 py-1 rounded">172.16.0.0/12</code> - Large subnet</div>
-                  <div><code className="bg-blue-100 px-2 py-1 rounded">2001:db8::/32</code> - IPv6 range</div>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Add IP Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Add IP Address</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => {
-                    setSelectedCategory(e.target.value);
-                    setSelectedSubcategory('');
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select category...</option>
-                  <option value="smtp_relay">SMTP Relay</option>
-                  <option value="frontend_access">Frontend Access</option>
-                  <option value="blacklist">Blacklist</option>
-                </select>
-              </div>
-
-              {selectedCategory === 'smtp_relay' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Subcategory</label>
-                  <select
-                    value={selectedSubcategory}
-                    onChange={(e) => setSelectedSubcategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select subcategory...</option>
-                    <option value="no_auth_required">No Auth Required</option>
-                    <option value="auth_required">Auth Required</option>
-                  </select>
-                </div>
-              )}
-
-              {selectedCategory === 'frontend_access' && (
-                <input type="hidden" value="allowed" onChange={() => setSelectedSubcategory('allowed')} />
-              )}
-
-              {selectedCategory === 'blacklist' && (
-                <input type="hidden" value="blocked" onChange={() => setSelectedSubcategory('blocked')} />
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">IP Address</label>
-                <input
-                  type="text"
-                  value={newIP}
-                  onChange={(e) => setNewIP(e.target.value)}
-                  placeholder="e.g., 192.168.1.1 or 10.0.0.0/24"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowAddModal(false);
-                  setNewIP('');
-                  setSelectedCategory('');
-                  setSelectedSubcategory('');
-                }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddIP}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Add IP
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Import Modal */}
-      {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Import IP Addresses</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                <select
-                  value={selectedCategory}
-                  onChange={(e) => {
-                    setSelectedCategory(e.target.value);
-                    setSelectedSubcategory('');
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select category...</option>
-                  <option value="smtp_relay">SMTP Relay</option>
-                  <option value="frontend_access">Frontend Access</option>
-                  <option value="blacklist">Blacklist</option>
-                </select>
-              </div>
-
-              {selectedCategory === 'smtp_relay' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Subcategory</label>
-                  <select
-                    value={selectedSubcategory}
-                    onChange={(e) => setSelectedSubcategory(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select subcategory...</option>
-                    <option value="no_auth_required">No Auth Required</option>
-                    <option value="auth_required">Auth Required</option>
-                  </select>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">IP Addresses (one per line)</label>
-                <textarea
-                  value={importText}
-                  onChange={(e) => setImportText(e.target.value)}
-                  placeholder="192.168.1.1&#10;10.0.0.0/24&#10;172.16.0.0/16"
-                  className="w-full h-32 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowImportModal(false);
-                  setImportText('');
-                  setSelectedCategory('');
-                  setSelectedSubcategory('');
-                }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleImport}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 Import
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              </Button>
+            </Box>
+          )}
 
-      {/* Test IP Modal */}
-      {showTestModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Test IP Address</h3>
-            
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">IP Address</label>
-                <input
-                  type="text"
-                  value={testIP}
-                  onChange={(e) => setTestIP(e.target.value)}
-                  placeholder="e.g., 192.168.1.1"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
+          {/* SMTP Relay Tab */}
+          {config && activeTab === 0 && (
+            <Box>
+              {/* No Auth Required Section */}
+              <Box mb={4}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <UnlockIcon color="success" />
+                    <Typography variant="h6">
+                      No Authentication Required
+                    </Typography>
+                    <Chip 
+                      label={config.smtp_relay.no_auth_required.length} 
+                      size="small" 
+                      color="default"
+                    />
+                  </Box>
+                  <Button
+                    size="small"
+                    startIcon={<DownloadIcon />}
+                    onClick={() => handleExport('smtp_relay', 'no_auth_required')}
+                  >
+                    Export
+                  </Button>
+                </Box>
+                <Paper variant="outlined" sx={{ p: 2 }}>
+                  {filterIPs(config.smtp_relay.no_auth_required).length > 0 ? (
+                    <Grid container spacing={2}>
+                      {filterIPs(config.smtp_relay.no_auth_required).map(ip => (
+                        <Grid item xs={12} sm={6} md={4} key={ip}>
+                          <Paper elevation={1} sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body2" fontFamily="monospace">
+                              {ip}
+                            </Typography>
+                            <Box display="flex" gap={0.5}>
+                              <IconButton
+                                size="small"
+                                onClick={() => copyToClipboard(ip)}
+                              >
+                                <CopyIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleRemoveIP('smtp_relay', 'no_auth_required', ip)}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </Paper>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" align="center" py={4}>
+                      No IPs configured
+                    </Typography>
+                  )}
+                </Paper>
+              </Box>
 
-              {testResults && (
-                <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">IP Type:</span>
-                    <span className="text-sm text-gray-900">{testResults.type}</span>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Blacklisted:</span>
-                    {testResults.blacklisted ? (
-                      <span className="flex items-center space-x-1 text-red-600">
-                        <XCircle className="h-4 w-4" />
-                        <span>Yes</span>
-                      </span>
-                    ) : (
-                      <span className="flex items-center space-x-1 text-green-600">
-                        <CheckCircle className="h-4 w-4" />
-                        <span>No</span>
-                      </span>
-                    )}
-                  </div>
+              {/* Auth Required Section */}
+              <Box>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Box display="flex" alignItems="center" gap={1}>
+                    <LockIcon color="warning" />
+                    <Typography variant="h6">
+                      Authentication Required
+                    </Typography>
+                    <Chip 
+                      label={config.smtp_relay.auth_required.length} 
+                      size="small" 
+                      color="default"
+                    />
+                  </Box>
+                  <Button
+                    size="small"
+                    startIcon={<DownloadIcon />}
+                    onClick={() => handleExport('smtp_relay', 'auth_required')}
+                  >
+                    Export
+                  </Button>
+                </Box>
+                <Paper variant="outlined" sx={{ p: 2 }}>
+                  {filterIPs(config.smtp_relay.auth_required).length > 0 ? (
+                    <Grid container spacing={2}>
+                      {filterIPs(config.smtp_relay.auth_required).map(ip => (
+                        <Grid item xs={12} sm={6} md={4} key={ip}>
+                          <Paper elevation={1} sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="body2" fontFamily="monospace">
+                              {ip}
+                            </Typography>
+                            <Box display="flex" gap={0.5}>
+                              <IconButton
+                                size="small"
+                                onClick={() => copyToClipboard(ip)}
+                              >
+                                <CopyIcon fontSize="small" />
+                              </IconButton>
+                              <IconButton
+                                size="small"
+                                color="error"
+                                onClick={() => handleRemoveIP('smtp_relay', 'auth_required', ip)}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </Paper>
+                        </Grid>
+                      ))}
+                    </Grid>
+                  ) : (
+                    <Typography variant="body2" color="text.secondary" align="center" py={4}>
+                      No IPs configured
+                    </Typography>
+                  )}
+                </Paper>
+              </Box>
+            </Box>
+          )}
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">SMTP Access:</span>
-                    {testResults.smtp_access.allowed ? (
-                      <span className="flex items-center space-x-1 text-green-600">
-                        <CheckCircle className="h-4 w-4" />
-                        <span>{testResults.smtp_access.requiresAuth ? 'Auth Required' : 'No Auth'}</span>
-                      </span>
-                    ) : (
-                      <span className="flex items-center space-x-1 text-red-600">
-                        <XCircle className="h-4 w-4" />
-                        <span>Denied</span>
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700">Frontend Access:</span>
-                    {testResults.frontend_access ? (
-                      <span className="flex items-center space-x-1 text-green-600">
-                        <CheckCircle className="h-4 w-4" />
-                        <span>Allowed</span>
-                      </span>
-                    ) : (
-                      <span className="flex items-center space-x-1 text-red-600">
-                        <XCircle className="h-4 w-4" />
-                        <span>Denied</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
+          {/* Frontend Access Tab */}
+          {config && activeTab === 1 && (
+            <Box>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <GlobeIcon color="primary" />
+                  <Typography variant="h6">
+                    Allowed IPs
+                  </Typography>
+                  <Chip 
+                    label={config.frontend_access.allowed.length} 
+                    size="small" 
+                    color="default"
+                  />
+                </Box>
+                <Button
+                  size="small"
+                  startIcon={<DownloadIcon />}
+                  onClick={() => handleExport('frontend_access', 'allowed')}
+                >
+                  Export
+                </Button>
+              </Box>
+              
+              {!config.settings.enforce_frontend_whitelist && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  Frontend whitelist is not enforced. All IPs can access the dashboard.
+                </Alert>
               )}
-            </div>
 
-            <div className="flex justify-end space-x-3 mt-6">
-              <button
-                onClick={() => {
-                  setShowTestModal(false);
-                  setTestIP('');
-                  setTestResults(null);
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                {filterIPs(config.frontend_access.allowed).length > 0 ? (
+                  <Grid container spacing={2}>
+                    {filterIPs(config.frontend_access.allowed).map(ip => (
+                      <Grid item xs={12} sm={6} md={4} key={ip}>
+                        <Paper elevation={1} sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" fontFamily="monospace">
+                            {ip}
+                          </Typography>
+                          <Box display="flex" gap={0.5}>
+                            <IconButton
+                              size="small"
+                              onClick={() => copyToClipboard(ip)}
+                            >
+                              <CopyIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleRemoveIP('frontend_access', 'allowed', ip)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" align="center" py={4}>
+                    No IPs configured
+                  </Typography>
+                )}
+              </Paper>
+            </Box>
+          )}
+
+          {/* Blacklist Tab */}
+          {config && activeTab === 2 && (
+            <Box>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <BlockIcon color="error" />
+                  <Typography variant="h6">
+                    Blocked IPs
+                  </Typography>
+                  <Chip 
+                    label={config.blacklist.blocked.length} 
+                    size="small" 
+                    color="default"
+                  />
+                </Box>
+                <Button
+                  size="small"
+                  startIcon={<DownloadIcon />}
+                  onClick={() => handleExport('blacklist', 'blocked')}
+                >
+                  Export
+                </Button>
+              </Box>
+
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                {filterIPs(config.blacklist.blocked).length > 0 ? (
+                  <Grid container spacing={2}>
+                    {filterIPs(config.blacklist.blocked).map(ip => (
+                      <Grid item xs={12} sm={6} md={4} key={ip}>
+                        <Paper elevation={1} sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <Typography variant="body2" fontFamily="monospace">
+                            {ip}
+                          </Typography>
+                          <Box display="flex" gap={0.5}>
+                            <IconButton
+                              size="small"
+                              onClick={() => copyToClipboard(ip)}
+                            >
+                              <CopyIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => handleRemoveIP('blacklist', 'blocked', ip)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Box>
+                        </Paper>
+                      </Grid>
+                    ))}
+                  </Grid>
+                ) : (
+                  <Typography variant="body2" color="text.secondary" align="center" py={4}>
+                    No IPs blacklisted
+                  </Typography>
+                )}
+              </Paper>
+            </Box>
+          )}
+
+          {/* Settings Tab */}
+          {config && activeTab === 3 && (
+            <Box>
+              <Paper variant="outlined" sx={{ p: 3, mb: 3 }}>
+                <Typography variant="h6" gutterBottom>
+                  Access Control Settings
+                </Typography>
+                
+                <List>
+                  <ListItem>
+                    <ListItemText
+                      primary="Enforce Frontend Whitelist"
+                      secondary="Only allow whitelisted IPs to access the dashboard"
+                    />
+                    <ListItemSecondaryAction>
+                      <Switch
+                        edge="end"
+                        checked={config.settings.enforce_frontend_whitelist}
+                        onChange={(e) => handleSettingsUpdate('enforce_frontend_whitelist', e.target.checked)}
+                        color="primary"
+                      />
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                  <Divider />
+                  <ListItem>
+                    <ListItemText
+                      primary="Log Denied Attempts"
+                      secondary="Record all denied access attempts in audit log"
+                    />
+                    <ListItemSecondaryAction>
+                      <Switch
+                        edge="end"
+                        checked={config.settings.log_denied_attempts}
+                        onChange={(e) => handleSettingsUpdate('log_denied_attempts', e.target.checked)}
+                        color="primary"
+                      />
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                  <Divider />
+                  <ListItem>
+                    <ListItemText
+                      primary="Auto-block After Failures"
+                      secondary="Number of failed attempts before auto-blacklisting"
+                    />
+                    <ListItemSecondaryAction>
+                      <TextField
+                        type="number"
+                        value={config.settings.auto_block_after_failures}
+                        onChange={(e) => handleSettingsUpdate('auto_block_after_failures', parseInt(e.target.value))}
+                        inputProps={{ min: 0, max: 100 }}
+                        size="small"
+                        sx={{ width: 80 }}
+                      />
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                </List>
+              </Paper>
+
+              <Alert severity="info" icon={<KeyIcon />}>
+                <AlertTitle>IP Format Examples</AlertTitle>
+                <Box component="ul" sx={{ mt: 1, pl: 2 }}>
+                  <li><code>192.168.1.1</code> - Single IP</li>
+                  <li><code>10.0.0.0/24</code> - CIDR notation (256 IPs)</li>
+                  <li><code>172.16.0.0/12</code> - Large subnet</li>
+                  <li><code>2001:db8::/32</code> - IPv6 range</li>
+                </Box>
+              </Alert>
+            </Box>
+          )}
+        </Box>
+      </Paper>
+
+      {/* Add IP Dialog */}
+      <Dialog open={showAddModal} onClose={() => setShowAddModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Add IP Address</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={selectedCategory}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  setSelectedSubcategory('');
                 }}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                label="Category"
               >
-                Close
-              </button>
-              <button
-                onClick={handleTestIP}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                Test IP
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+                <MenuItem value="">Select category...</MenuItem>
+                <MenuItem value="smtp_relay">SMTP Relay</MenuItem>
+                <MenuItem value="frontend_access">Frontend Access</MenuItem>
+                <MenuItem value="blacklist">Blacklist</MenuItem>
+              </Select>
+            </FormControl>
 
-      {/* Audit Log Modal */}
-      {showAuditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Audit Log</h3>
-              <button
-                onClick={() => setShowAuditModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+            {selectedCategory === 'smtp_relay' && (
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Subcategory</InputLabel>
+                <Select
+                  value={selectedSubcategory}
+                  onChange={(e) => setSelectedSubcategory(e.target.value)}
+                  label="Subcategory"
+                >
+                  <MenuItem value="">Select subcategory...</MenuItem>
+                  <MenuItem value="no_auth_required">No Auth Required</MenuItem>
+                  <MenuItem value="auth_required">Auth Required</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+
+            {selectedCategory === 'frontend_access' && (
+              <input type="hidden" value="allowed" onChange={() => setSelectedSubcategory('allowed')} />
+            )}
+
+            {selectedCategory === 'blacklist' && (
+              <input type="hidden" value="blocked" onChange={() => setSelectedSubcategory('blocked')} />
+            )}
+
+            <TextField
+              fullWidth
+              margin="normal"
+              label="IP Address"
+              value={newIP}
+              onChange={(e) => setNewIP(e.target.value)}
+              placeholder="e.g., 192.168.1.1 or 10.0.0.0/24"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setShowAddModal(false);
+            setNewIP('');
+            setSelectedCategory('');
+            setSelectedSubcategory('');
+          }}>
+            Cancel
+          </Button>
+          <Button onClick={handleAddIP} variant="contained">
+            Add IP
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={showImportModal} onClose={() => setShowImportModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Import IP Addresses</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Category</InputLabel>
+              <Select
+                value={selectedCategory}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value);
+                  setSelectedSubcategory('');
+                }}
+                label="Category"
               >
-                <XCircle className="h-6 w-6" />
-              </button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Time</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Category</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Value</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">User</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {auditLogs.map(log => (
-                    <tr key={log.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-sm text-gray-900">
-                        {new Date(log.timestamp).toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          log.action === 'ADD' ? 'bg-green-100 text-green-800' :
-                          log.action === 'REMOVE' ? 'bg-red-100 text-red-800' :
-                          log.action === 'DENIED_ACCESS' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {log.action}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-sm text-gray-900">
-                        {log.category}/{log.subcategory}
-                      </td>
-                      <td className="px-4 py-2 text-sm font-mono text-gray-900">
+                <MenuItem value="">Select category...</MenuItem>
+                <MenuItem value="smtp_relay">SMTP Relay</MenuItem>
+                <MenuItem value="frontend_access">Frontend Access</MenuItem>
+                <MenuItem value="blacklist">Blacklist</MenuItem>
+              </Select>
+            </FormControl>
+
+            {selectedCategory === 'smtp_relay' && (
+              <FormControl fullWidth margin="normal">
+                <InputLabel>Subcategory</InputLabel>
+                <Select
+                  value={selectedSubcategory}
+                  onChange={(e) => setSelectedSubcategory(e.target.value)}
+                  label="Subcategory"
+                >
+                  <MenuItem value="">Select subcategory...</MenuItem>
+                  <MenuItem value="no_auth_required">No Auth Required</MenuItem>
+                  <MenuItem value="auth_required">Auth Required</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+
+            <TextField
+              fullWidth
+              margin="normal"
+              label="IP Addresses (one per line)"
+              multiline
+              rows={6}
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              placeholder={"192.168.1.1\n10.0.0.0/24\n172.16.0.0/16"}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setShowImportModal(false);
+            setImportText('');
+            setSelectedCategory('');
+            setSelectedSubcategory('');
+          }}>
+            Cancel
+          </Button>
+          <Button onClick={handleImport} variant="contained">
+            Import
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Test IP Dialog */}
+      <Dialog open={showTestModal} onClose={() => setShowTestModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Test IP Address</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <TextField
+              fullWidth
+              margin="normal"
+              label="IP Address"
+              value={testIP}
+              onChange={(e) => setTestIP(e.target.value)}
+              placeholder="e.g., 192.168.1.1"
+            />
+
+            {testResults && (
+              <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
+                <List dense>
+                  <ListItem>
+                    <ListItemText primary="IP Type" secondary={testResults.type} />
+                  </ListItem>
+                  <Divider />
+                  <ListItem>
+                    <ListItemText primary="Blacklisted" />
+                    <ListItemSecondaryAction>
+                      {testResults.blacklisted ? (
+                        <Chip
+                          icon={<CancelIcon />}
+                          label="Yes"
+                          color="error"
+                          size="small"
+                        />
+                      ) : (
+                        <Chip
+                          icon={<CheckCircleIcon />}
+                          label="No"
+                          color="success"
+                          size="small"
+                        />
+                      )}
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                  <Divider />
+                  <ListItem>
+                    <ListItemText primary="SMTP Access" />
+                    <ListItemSecondaryAction>
+                      {testResults.smtp_access.allowed ? (
+                        <Chip
+                          icon={<CheckCircleIcon />}
+                          label={testResults.smtp_access.requiresAuth ? 'Auth Required' : 'No Auth'}
+                          color="success"
+                          size="small"
+                        />
+                      ) : (
+                        <Chip
+                          icon={<CancelIcon />}
+                          label="Denied"
+                          color="error"
+                          size="small"
+                        />
+                      )}
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                  <Divider />
+                  <ListItem>
+                    <ListItemText primary="Frontend Access" />
+                    <ListItemSecondaryAction>
+                      {testResults.frontend_access ? (
+                        <Chip
+                          icon={<CheckCircleIcon />}
+                          label="Allowed"
+                          color="success"
+                          size="small"
+                        />
+                      ) : (
+                        <Chip
+                          icon={<CancelIcon />}
+                          label="Denied"
+                          color="error"
+                          size="small"
+                        />
+                      )}
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                </List>
+              </Paper>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setShowTestModal(false);
+            setTestIP('');
+            setTestResults(null);
+          }}>
+            Close
+          </Button>
+          <Button onClick={handleTestIP} variant="contained">
+            Test IP
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Audit Log Dialog */}
+      <Dialog 
+        open={showAuditModal} 
+        onClose={() => setShowAuditModal(false)} 
+        maxWidth="lg" 
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Audit Log</Typography>
+            <IconButton onClick={() => setShowAuditModal(false)}>
+              <CancelIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <TableContainer>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Time</TableCell>
+                  <TableCell>Action</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Value</TableCell>
+                  <TableCell>User</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {auditLogs.map(log => (
+                  <TableRow key={log.id} hover>
+                    <TableCell>
+                      {new Date(log.timestamp).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={log.action}
+                        size="small"
+                        color={
+                          log.action === 'ADD' ? 'success' :
+                          log.action === 'REMOVE' ? 'error' :
+                          log.action === 'DENIED_ACCESS' ? 'warning' :
+                          'default'
+                        }
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {log.category}/{log.subcategory}
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontFamily="monospace">
                         {log.value}
-                      </td>
-                      <td className="px-4 py-2 text-sm text-gray-900">
-                        {log.user}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+                      </Typography>
+                    </TableCell>
+                    <TableCell>{log.user}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </DialogContent>
+      </Dialog>
+    </Box>
   );
 };
 
