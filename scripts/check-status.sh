@@ -38,7 +38,11 @@ fi
 
 # Get hostname and IPs
 HOSTNAME=$(hostname -f 2>/dev/null || hostname)
-PRIMARY_IP=$(ip route get 1 2>/dev/null | awk '{print $NF;exit}' || hostname -I | awk '{print $1}')
+# Try multiple methods to get IP address
+PRIMARY_IP=$(ip route get 1.1.1.1 2>/dev/null | grep -oP 'src \K\S+' || \
+             ip addr show 2>/dev/null | grep 'inet ' | grep -v '127.0.0.1' | head -1 | awk '{print $2}' | cut -d/ -f1 || \
+             hostname -I 2>/dev/null | awk '{print $1}' || \
+             echo "localhost")
 
 echo "📮 SMTP Service Endpoints:"
 echo "──────────────────────────"
@@ -158,3 +162,5 @@ echo "View logs:        sudo journalctl -u smtp-relay -f"
 echo "Test SMTP:        telnet localhost $SMTP_PORT"
 echo "Open dashboard:   http://$PRIMARY_IP:$WEB_PORT"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo ""
+echo "📝 After starting the service, run 'npm run status' again to see all active endpoints."
