@@ -105,16 +105,12 @@ export const AuthProvider = ({ children }) => {
       // Set user from response
       setUser(data.user);
       
-      // Store in sessionStorage for persistence
+      // Store in sessionStorage for persistence (user info only, NO TOKENS)
       sessionStorage.setItem('userInfo', JSON.stringify(data.user));
       
-      // Store token if provided
-      if (data.token) {
-        sessionStorage.setItem('authToken', data.token);
-        console.log('[AuthContext] Token stored');
-      }
-      
+      // Token is now in httpOnly cookie (secure) - NOT accessible via JS
       console.log('[AuthContext] Login successful, user set:', data.user);
+      console.log('[AuthContext] Authentication uses httpOnly cookies (secure)');
       
       // Navigate to dashboard
       navigate('/dashboard');
@@ -152,15 +148,14 @@ export const AuthProvider = ({ children }) => {
   const apiRequest = async (url, options = {}) => {
     console.log('[AuthContext] API Request to:', url);
     
-    // Get token from sessionStorage
-    const token = sessionStorage.getItem('authToken');
-    
+    // SECURE: Use httpOnly cookies for authentication
+    // No tokens in localStorage/sessionStorage (XSS vulnerable)
     const requestOptions = {
       ...options,
-      credentials: 'include', // Always include cookies
+      credentials: 'include', // IMPORTANT: Include httpOnly cookies
       headers: {
         'Content-Type': 'application/json',
-        ...(token && { 'Authorization': `Bearer ${token}` }), // Add token if available
+        // No Authorization header needed - cookies handle auth securely
         ...options.headers
       }
     };
