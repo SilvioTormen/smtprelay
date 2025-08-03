@@ -94,6 +94,17 @@ router.post('/login', async (req, res) => {
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
     
+    // IMPORTANT: Set session for server-side auth
+    if (req.session) {
+      req.session.user = {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        role: user.role
+      };
+      console.log('Session set for user:', username);
+    }
+    
     // Return success
     res.json({
       success: true,
@@ -118,6 +129,9 @@ router.post('/login', async (req, res) => {
 // Logout endpoint
 router.post('/logout', (req, res) => {
   res.clearCookie('token');
+  if (req.session) {
+    req.session.destroy();
+  }
   res.json({ success: true });
 });
 
