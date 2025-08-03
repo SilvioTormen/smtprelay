@@ -39,8 +39,8 @@ import {
 import { useAuth } from '../contexts/AuthContext-Debug';
 import EmailFlowSankey from '../components/EmailFlowSankey-Simple';
 import GeoHeatMap from '../components/GeoHeatMap-Simple';
-import TimeSeriesAnalytics from '../components/TimeSeriesAnalytics';
-import DeviceHealthMonitor from '../components/DeviceHealthMonitor';
+import TimeSeriesAnalytics from '../components/TimeSeriesAnalytics-MUI';
+import DeviceHealthMonitor from '../components/DeviceHealthMonitor-MUI';
 
 const Analytics = () => {
   const { apiRequest } = useAuth();
