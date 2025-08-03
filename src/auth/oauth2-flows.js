@@ -78,12 +78,30 @@ class OAuth2FlowManager {
     });
 
     try {
-      // Request token with required scopes
-      const tokenResponse = await credential.getToken([
-        'https://outlook.office365.com/SMTP.Send',
-        'https://graph.microsoft.com/Mail.Send',
-        'offline_access'
-      ]);
+      // Determine scopes based on configured method
+      let scopes = ['offline_access'];
+      
+      const apiMethod = this.config.method || 'graph_api';
+      
+      if (apiMethod === 'graph_api') {
+        // Only Graph API scope
+        scopes.unshift('https://graph.microsoft.com/Mail.Send');
+        this.logger.info('Using Graph API scopes only');
+      } else if (apiMethod === 'smtp_oauth2') {
+        // Only SMTP scope
+        scopes.unshift('https://outlook.office365.com/SMTP.Send');
+        this.logger.info('Using SMTP OAuth2 scopes only');
+      } else if (apiMethod === 'hybrid') {
+        // Both scopes for hybrid mode
+        scopes.unshift('https://outlook.office365.com/SMTP.Send');
+        scopes.unshift('https://graph.microsoft.com/Mail.Send');
+        this.logger.info('Using hybrid mode with both scopes');
+      }
+      
+      this.logger.info(`Requesting scopes: ${scopes.join(', ')}`);
+      
+      // Request token with appropriate scopes
+      const tokenResponse = await credential.getToken(scopes);
 
       if (tokenResponse) {
         this.logger.info('✅ Device Code authentication successful!');
