@@ -65,9 +65,11 @@ import {
   VpnKey as KeyIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
+import { useAuth } from '../contexts/AuthContext';
 
 const IPWhitelist = () => {
   const { enqueueSnackbar } = useSnackbar();
+  const { apiRequest } = useAuth();
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
@@ -90,16 +92,7 @@ const IPWhitelist = () => {
 
   const loadConfig = async () => {
     try {
-      const response = await fetch('/api/ip-whitelist/config', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!response.ok) throw new Error('Failed to load configuration');
-      
-      const data = await response.json();
+      const data = await apiRequest('/api/ip-whitelist/config');
       setConfig(data.config);
       setLoading(false);
     } catch (err) {
@@ -115,22 +108,14 @@ const IPWhitelist = () => {
     }
 
     try {
-      const response = await fetch('/api/ip-whitelist/add', {
+      const data = await apiRequest('/api/ip-whitelist/add', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           category: selectedCategory,
           subcategory: selectedSubcategory,
           ip: newIP
         })
       });
-
-      const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error);
       
       enqueueSnackbar(`Added ${data.ip} successfully`, { variant: 'success' });
       setShowAddModal(false);
@@ -145,18 +130,10 @@ const IPWhitelist = () => {
     if (!confirm(`Remove ${ip} from ${category}/${subcategory}?`)) return;
 
     try {
-      const response = await fetch('/api/ip-whitelist/remove', {
+      const data = await apiRequest('/api/ip-whitelist/remove', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ category, subcategory, ip })
       });
-
-      const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error);
       
       enqueueSnackbar(`Removed ${ip} successfully`, { variant: 'success' });
       loadConfig();
@@ -174,22 +151,14 @@ const IPWhitelist = () => {
     const ips = importText.split('\n').map(ip => ip.trim()).filter(Boolean);
     
     try {
-      const response = await fetch('/api/ip-whitelist/import', {
+      const data = await apiRequest('/api/ip-whitelist/import', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({
           category: selectedCategory,
           subcategory: selectedSubcategory,
           ips
         })
       });
-
-      const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error);
       
       const { results } = data;
       enqueueSnackbar(
@@ -206,16 +175,7 @@ const IPWhitelist = () => {
 
   const handleExport = async (category, subcategory) => {
     try {
-      const response = await fetch(`/api/ip-whitelist/export/${category}/${subcategory}`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error);
+      const data = await apiRequest(`/api/ip-whitelist/export/${category}/${subcategory}`);
       
       // Create download
       const content = data.ips.join('\n');
@@ -240,18 +200,10 @@ const IPWhitelist = () => {
     }
 
     try {
-      const response = await fetch('/api/ip-whitelist/test', {
+      const data = await apiRequest('/api/ip-whitelist/test', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ ip: testIP })
       });
-
-      const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error);
       
       setTestResults(data);
     } catch (err) {
@@ -262,18 +214,10 @@ const IPWhitelist = () => {
 
   const handleSettingsUpdate = async (setting, value) => {
     try {
-      const response = await fetch('/api/ip-whitelist/settings', {
+      const data = await apiRequest('/api/ip-whitelist/settings', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify({ [setting]: value })
       });
-
-      const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error);
       
       enqueueSnackbar('Settings updated successfully', { variant: 'success' });
       loadConfig();
@@ -284,16 +228,7 @@ const IPWhitelist = () => {
 
   const loadAuditLog = async () => {
     try {
-      const response = await fetch('/api/ip-whitelist/audit?limit=100', {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) throw new Error(data.error);
+      const data = await apiRequest('/api/ip-whitelist/audit?limit=100');
       
       setAuditLogs(data.logs);
       setShowAuditModal(true);
