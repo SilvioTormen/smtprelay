@@ -103,8 +103,17 @@ const Profile = () => {
 
   const handleDisableTOTP = async () => {
     try {
+      // Get CSRF token first
+      const csrfResponse = await fetch('/api/csrf-token', {
+        credentials: 'include'
+      });
+      const { csrfToken } = await csrfResponse.json();
+      
       const response = await fetch('/api/mfa/totp/disable', {
         method: 'POST',
+        headers: {
+          'X-CSRF-Token': csrfToken
+        },
         credentials: 'include'
       });
       
@@ -121,8 +130,17 @@ const Profile = () => {
 
   const handleRemoveFIDO2Device = async (deviceId) => {
     try {
+      // Get CSRF token first
+      const csrfResponse = await fetch('/api/csrf-token', {
+        credentials: 'include'
+      });
+      const { csrfToken } = await csrfResponse.json();
+      
       const response = await fetch(`/api/mfa/fido2/devices/${deviceId}`, {
         method: 'DELETE',
+        headers: {
+          'X-CSRF-Token': csrfToken
+        },
         credentials: 'include'
       });
       
@@ -139,8 +157,17 @@ const Profile = () => {
 
   const handleGenerateBackupCodes = async () => {
     try {
+      // Get CSRF token first
+      const csrfResponse = await fetch('/api/csrf-token', {
+        credentials: 'include'
+      });
+      const { csrfToken } = await csrfResponse.json();
+      
       const response = await fetch('/api/mfa/backup/generate', {
         method: 'POST',
+        headers: {
+          'X-CSRF-Token': csrfToken
+        },
         credentials: 'include'
       });
       

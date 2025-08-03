@@ -123,6 +123,17 @@ const UserManagement = () => {
     }
     
     try {
+      // First, fetch CSRF token
+      const csrfResponse = await fetch('/api/csrf-token', {
+        credentials: 'include'
+      });
+      
+      if (!csrfResponse.ok) {
+        throw new Error('Failed to get CSRF token');
+      }
+      
+      const { csrfToken } = await csrfResponse.json();
+      
       const url = editMode ? `/api/users/${selectedUser.id}` : '/api/users';
       const method = editMode ? 'PUT' : 'POST';
       
@@ -142,7 +153,8 @@ const UserManagement = () => {
       const response = await fetch(url, {
         method,
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
         },
         credentials: 'include',
         body: JSON.stringify(body)
@@ -168,8 +180,22 @@ const UserManagement = () => {
 
   const handleDelete = async () => {
     try {
+      // First, fetch CSRF token
+      const csrfResponse = await fetch('/api/csrf-token', {
+        credentials: 'include'
+      });
+      
+      if (!csrfResponse.ok) {
+        throw new Error('Failed to get CSRF token');
+      }
+      
+      const { csrfToken } = await csrfResponse.json();
+      
       const response = await fetch(`/api/users/${selectedUser.id}`, {
         method: 'DELETE',
+        headers: {
+          'X-CSRF-Token': csrfToken
+        },
         credentials: 'include'
       });
       
@@ -189,10 +215,22 @@ const UserManagement = () => {
 
   const handleUnlock = async (userId) => {
     try {
+      // First, fetch CSRF token
+      const csrfResponse = await fetch('/api/csrf-token', {
+        credentials: 'include'
+      });
+      
+      if (!csrfResponse.ok) {
+        throw new Error('Failed to get CSRF token');
+      }
+      
+      const { csrfToken } = await csrfResponse.json();
+      
       const response = await fetch(`/api/users/${userId}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
         },
         credentials: 'include',
         body: JSON.stringify({ unlockAccount: true })
@@ -212,8 +250,22 @@ const UserManagement = () => {
 
   const handleReset2FA = async (userId) => {
     try {
+      // First, fetch CSRF token
+      const csrfResponse = await fetch('/api/csrf-token', {
+        credentials: 'include'
+      });
+      
+      if (!csrfResponse.ok) {
+        throw new Error('Failed to get CSRF token');
+      }
+      
+      const { csrfToken } = await csrfResponse.json();
+      
       const response = await fetch(`/api/users/${userId}/reset-2fa`, {
         method: 'POST',
+        headers: {
+          'X-CSRF-Token': csrfToken
+        },
         credentials: 'include'
       });
       

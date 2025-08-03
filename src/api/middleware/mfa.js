@@ -160,11 +160,21 @@ class FIDO2Manager {
    */
   static async verifyRegistration(userId, response) {
     const expectedChallenge = challenges.get(userId);
+    console.log('[FIDO2] Verifying registration for user:', userId);
+    console.log('[FIDO2] Expected challenge:', expectedChallenge ? 'present' : 'missing');
+    console.log('[FIDO2] Response type:', typeof response);
+    console.log('[FIDO2] Response keys:', response ? Object.keys(response) : 'none');
+    
     if (!expectedChallenge) {
+      console.error('[FIDO2] ERROR: No challenge found for user');
       throw new Error('No challenge found for user');
     }
 
     try {
+      console.log('[FIDO2] Calling verifyRegistrationResponse with:');
+      console.log('[FIDO2] - expectedOrigin:', ORIGIN);
+      console.log('[FIDO2] - expectedRPID:', RP_ID);
+      
       const verification = await verifyRegistrationResponse({
         response,
         expectedChallenge,
@@ -173,6 +183,8 @@ class FIDO2Manager {
         requireUserVerification: false, // For broader compatibility
       });
 
+      console.log('[FIDO2] Verification result:', verification);
+      
       if (verification.verified && verification.registrationInfo) {
         const { credentialPublicKey, credentialID, counter, credentialDeviceType, credentialBackedUp } = 
           verification.registrationInfo;
@@ -201,10 +213,13 @@ class FIDO2Manager {
         };
       }
 
-      return { verified: false };
+      console.log('[FIDO2] Verification failed - not verified or no registrationInfo');
+      return { verified: false, error: 'Verification check failed' };
     } catch (error) {
-      console.error('Registration verification error:', error);
-      throw error;
+      console.error('[FIDO2] Registration verification error:', error.message);
+      console.error('[FIDO2] Error stack:', error.stack);
+      // Return error instead of throwing to provide better feedback
+      return { verified: false, error: error.message };
     }
   }
 

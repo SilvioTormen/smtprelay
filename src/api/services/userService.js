@@ -52,6 +52,34 @@ class UserService {
   async initializeDefaultUsers() {
     const isDevelopment = process.env.NODE_ENV !== 'production';
     
+    // Check if the users file already exists
+    try {
+      await fs.access(this.usersFile);
+      // File exists, try to load it
+      const data = await fs.readFile(this.usersFile, 'utf8');
+      const usersData = JSON.parse(data);
+      
+      // If file has users, don't reinitialize
+      if (Object.keys(usersData).length > 0) {
+        console.log('Users file exists with data, loading existing users...');
+        
+        // Load the existing users
+        for (const [username, userData] of Object.entries(usersData)) {
+          // Decrypt sensitive fields if needed
+          if (userData.totpSecret && typeof userData.totpSecret === 'string' && userData.totpSecret.includes(':')) {
+            userData.totpSecret = encryptionService.decrypt(userData.totpSecret);
+          }
+          this.users.set(username, userData);
+        }
+        
+        console.log(`✅ Loaded ${this.users.size} users from existing file`);
+        return;
+      }
+    } catch (error) {
+      // File doesn't exist or is invalid, continue with initialization
+      console.log('Initializing with default users...');
+    }
+    
     // Default users with roles and permissions
     const defaultUsers = [
       {
@@ -316,6 +344,26 @@ class UserService {
       totpSecret: secret,
       totpEnabled: true
     });
+  }
+
+  async deleteUser(username) {
+    await this.initialize();
+    
+    if (!this.users.has(username)) {
+      throw new Error('User not found');
+    }
+    
+    // Don't allow deleting the last admin
+    const admins = Array.from(this.users.values()).filter(u => u.role === 'admin');
+    const userToDelete = this.users.get(username);
+    if (userToDelete.role === 'admin' && admins.length <= 1) {
+      throw new Error('Cannot delete the last admin');
+    }
+    
+    this.users.delete(username);
+    await this.saveUsers();
+    
+    return true;
   }
 
   async disableTOTP(username) {
