@@ -17,8 +17,8 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const navigate = useNavigate();
 
-  // API base URL
-  const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
+  // API base URL - use same origin when served from same server
+  const API_URL = process.env.REACT_APP_API_URL || window.location.origin;
 
   // Check session on mount and refresh
   useEffect(() => {
