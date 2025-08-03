@@ -26,7 +26,15 @@ class SecurityConfig {
     
     if (this.errors.length > 0) {
       console.error('❌ SECURITY VALIDATION FAILED:');
-      this.errors.forEach(err => console.error(`   - ${err}`));
+      // Sanitize error messages to prevent leaking sensitive info
+      this.errors.forEach(err => {
+        // Remove any potential secrets from error messages
+        const sanitized = String(err)
+          .replace(/[A-Za-z0-9+/]{20,}={0,2}/g, '[REDACTED]') // Base64 patterns
+          .replace(/[0-9a-f]{32,}/gi, '[REDACTED]') // Hex strings (keys/tokens)
+          .replace(/(password|secret|token|key|api|jwt)[\s:=]*.{0,50}/gi, '$1=[REDACTED]');
+        console.error(`   - ${sanitized}`);
+      });
       
       if (process.env.NODE_ENV === 'production') {
         console.error('\n🛑 Cannot start in production with security errors!');
@@ -36,7 +44,14 @@ class SecurityConfig {
     
     if (this.warnings.length > 0) {
       console.warn('⚠️  Security warnings:');
-      this.warnings.forEach(warn => console.warn(`   - ${warn}`));
+      this.warnings.forEach(warn => {
+        // Sanitize warning messages
+        const sanitized = String(warn)
+          .replace(/[A-Za-z0-9+/]{20,}={0,2}/g, '[REDACTED]')
+          .replace(/[0-9a-f]{32,}/gi, '[REDACTED]')
+          .replace(/(password|secret|token|key|api|jwt)[\s:=]*.{0,50}/gi, '$1=[REDACTED]');
+        console.warn(`   - ${sanitized}`);
+      });
     }
     
     if (this.errors.length === 0 && this.warnings.length === 0) {
