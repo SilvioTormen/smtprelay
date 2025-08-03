@@ -18,7 +18,7 @@ import Sessions from './pages/Sessions';
 import Analytics from './pages/Analytics';
 
 // Contexts
-import { AuthProvider } from './contexts/AuthContext';
+import { AuthProvider } from './contexts/AuthContext-Debug'; // Use debug version
 import { WebSocketProvider } from './contexts/WebSocketContext';
 
 // Components
