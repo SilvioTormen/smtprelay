@@ -23,8 +23,11 @@ import {
 } from '@mui/icons-material';
 
 const GeoHeatMap = ({ data, height }) => {
+  // Handle both formats: direct array or object with locations property
+  const locations = data?.locations || data;
+  
   // If no data, show placeholder
-  if (!data || !data.locations) {
+  if (!locations || !Array.isArray(locations) || locations.length === 0) {
     return (
       <Card sx={{ height: height || 400 }}>
         <CardContent>
@@ -39,22 +42,27 @@ const GeoHeatMap = ({ data, height }) => {
     );
   }
 
-  const maxCount = Math.max(...data.locations.map(l => l.count));
-  const totalCount = data.locations.reduce((sum, l) => sum + l.count, 0);
+  const maxCount = Math.max(...locations.map(l => l.count));
+  const totalCount = locations.reduce((sum, l) => sum + l.count, 0);
 
   // Country flag emoji helper (simplified)
   const getCountryFlag = (country) => {
     const flags = {
       'United States': '🇺🇸',
+      'USA': '🇺🇸',
       'Germany': '🇩🇪',
       'United Kingdom': '🇬🇧',
+      'UK': '🇬🇧',
       'Japan': '🇯🇵',
       'Australia': '🇦🇺',
       'Canada': '🇨🇦',
       'France': '🇫🇷',
       'India': '🇮🇳',
       'Brazil': '🇧🇷',
-      'China': '🇨🇳'
+      'China': '🇨🇳',
+      'Singapore': '🇸🇬',
+      'UAE': '🇦🇪',
+      'Dubai': '🇦🇪'
     };
     return flags[country] || '🌍';
   };
@@ -69,7 +77,7 @@ const GeoHeatMap = ({ data, height }) => {
           </Typography>
           <Box sx={{ flexGrow: 1 }} />
           <Chip
-            label={`${data.locations.length} Countries`}
+            label={`${locations.length} Countries`}
             size="small"
             color="primary"
             variant="outlined"
@@ -87,7 +95,7 @@ const GeoHeatMap = ({ data, height }) => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {data.locations.map((location, index) => {
+              {locations.map((location, index) => {
                 const percentage = (location.count / totalCount) * 100;
                 const isTopCountry = index < 3;
                 
@@ -185,7 +193,7 @@ const GeoHeatMap = ({ data, height }) => {
               Total Countries
             </Typography>
             <Typography variant="h6">
-              {data.locations.length}
+              {locations.length}
             </Typography>
           </Box>
           <Box sx={{ textAlign: 'center' }}>
@@ -201,7 +209,7 @@ const GeoHeatMap = ({ data, height }) => {
               Top Country
             </Typography>
             <Typography variant="h6">
-              {data.locations[0]?.country || 'N/A'}
+              {locations[0]?.country || 'N/A'}
             </Typography>
           </Box>
         </Box>
