@@ -11,7 +11,7 @@ const path = require('path');
 const fs = require('fs');
 
 // Import routes
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/auth-simple'); // Use simplified auth
 const dashboardRoutes = require('./routes/dashboard');
 const deviceRoutes = require('./routes/devices');
 const queueRoutes = require('./routes/queue');
