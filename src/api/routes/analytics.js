@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-// Use simplified auth for now
-const { authenticate, authorize } = require('../middleware/auth-simple');
+// Use production auth middleware
+const { authenticate, authorize } = require('../middleware/auth');
 // Comment out dependencies we don't have yet
 // const geoip = require('geoip-lite');
 // const { subHours, subDays, format } = require('date-fns');

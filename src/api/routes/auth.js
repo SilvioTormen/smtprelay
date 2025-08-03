@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const qrcode = require('qrcode');
 const cookieParser = require('cookie-parser');
 const {
+  authenticate,
   generateTokens,
   verifyRefreshToken,
   hashPassword,
@@ -27,7 +28,7 @@ const users = new Map([
     username: 'admin',
     password: null, // Will be set on first run
     role: 'admin',
-    permissions: ['read', 'write', 'delete', 'configure'],
+    permissions: ['read', 'write', 'delete', 'configure', 'manage_users'],
     twoFactorSecret: null,
     twoFactorEnabled: false,
     failedAttempts: 0,
@@ -36,6 +37,17 @@ const users = new Map([
   ['helpdesk', {
     id: '2',
     username: 'helpdesk',
+    password: null,
+    role: 'viewer',
+    permissions: ['read'],
+    twoFactorSecret: null,
+    twoFactorEnabled: false,
+    failedAttempts: 0,
+    lockedUntil: null
+  }],
+  ['engineering', {
+    id: '3',
+    username: 'engineering',
     password: null,
     role: 'operator',
     permissions: ['read', 'write'],
@@ -50,32 +62,37 @@ const users = new Map([
 const initializeUsers = async () => {
   const adminUser = users.get('admin');
   const helpdeskUser = users.get('helpdesk');
+  const engineeringUser = users.get('engineering');
   
   if (process.env.NODE_ENV === 'production') {
     // Production: Use environment variables
-    if (!process.env.ADMIN_INITIAL_PASSWORD || !process.env.HELPDESK_INITIAL_PASSWORD) {
-      console.error('❌ ADMIN_INITIAL_PASSWORD and HELPDESK_INITIAL_PASSWORD must be set in production!');
+    if (!process.env.ADMIN_INITIAL_PASSWORD || !process.env.HELPDESK_INITIAL_PASSWORD || !process.env.ENGINEERING_INITIAL_PASSWORD) {
+      console.error('❌ ADMIN_INITIAL_PASSWORD, HELPDESK_INITIAL_PASSWORD and ENGINEERING_INITIAL_PASSWORD must be set in production!');
       console.error('Run: node scripts/generate-secrets.js to generate secure configuration');
       process.exit(1);
     }
     
     adminUser.password = await hashPassword(process.env.ADMIN_INITIAL_PASSWORD);
     helpdeskUser.password = await hashPassword(process.env.HELPDESK_INITIAL_PASSWORD);
+    engineeringUser.password = await hashPassword(process.env.ENGINEERING_INITIAL_PASSWORD);
     
     console.log('✅ Users initialized with secure passwords from environment');
   } else {
-    // Development: Generate random passwords
+    // Development: Generate secure random passwords
     const crypto = require('crypto');
     const adminPass = 'Dev_' + crypto.randomBytes(8).toString('hex');
     const helpdeskPass = 'Dev_' + crypto.randomBytes(8).toString('hex');
+    const engineeringPass = 'Dev_' + crypto.randomBytes(8).toString('hex');
     
     adminUser.password = await hashPassword(adminPass);
     helpdeskUser.password = await hashPassword(helpdeskPass);
+    engineeringUser.password = await hashPassword(engineeringPass);
     
-    console.log('🔐 Development users initialized with random passwords:');
+    console.log('🔐 Development users initialized with secure random passwords:');
     console.log(`   Admin: admin / ${adminPass}`);
-    console.log(`   Helpdesk: helpdesk / ${helpdeskPass}`);
-    console.log('   (Save these passwords - they are randomly generated)');
+    console.log(`   Helpdesk (viewer): helpdesk / ${helpdeskPass}`);
+    console.log(`   Engineering (operator): engineering / ${engineeringPass}`);
+    console.log('   📝 Save these passwords - they are randomly generated on each restart!');
   }
 };
 
@@ -84,9 +101,9 @@ initializeUsers();
 // Login endpoint with comprehensive security
 router.post('/login',
   [
-    body('username').trim().isLength({ min: 3, max: 50 }).escape(),
-    body('password').isLength({ min: 8, max: 100 }),
-    body('totpToken').optional().isNumeric().isLength({ min: 6, max: 6 })
+    body('username').trim().isLength({ min: 1, max: 50 }).escape(),
+    body('password').isLength({ min: 1, max: 100 }),
+    body('totpToken').optional({ nullable: true, checkFalsy: true }).isNumeric().isLength({ min: 6, max: 6 })
   ],
   async (req, res) => {
     try {
@@ -281,6 +298,24 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
+// Get current user info
+router.get('/me', authenticate, (req, res) => {
+  if (!req.user) {
+    return res.status(401).json({ 
+      error: 'Not authenticated',
+      code: 'NOT_AUTHENTICATED'
+    });
+  }
+  
+  res.json({
+    id: req.user.id,
+    username: req.user.username,
+    email: req.user.email || `${req.user.username}@example.com`,
+    role: req.user.role,
+    permissions: req.user.permissions
+  });
+});
+
 // Logout endpoint
 router.post('/logout', async (req, res) => {
   try {
@@ -290,9 +325,19 @@ router.post('/logout', async (req, res) => {
       blacklistToken(accessToken);
     }
 
-    // Clear ALL auth cookies
-    res.clearCookie('accessToken', { path: '/' });
-    res.clearCookie('refreshToken', { path: '/api/auth/refresh' });
+    // Clear ALL auth cookies with same security options as when setting
+    res.clearCookie('accessToken', { 
+      path: '/',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    });
+    res.clearCookie('refreshToken', { 
+      path: '/api/auth/refresh',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict'
+    });
 
     res.json({
       success: true,
@@ -498,4 +543,6 @@ router.post('/change-password',
     }
 });
 
+// Export router and users for other modules
 module.exports = router;
+module.exports.users = users;

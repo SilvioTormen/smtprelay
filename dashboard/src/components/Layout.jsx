@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { AuthContext } from '../contexts/AuthContext';
 import {
   Home,
   Storage as Server,
@@ -13,11 +14,13 @@ import {
   DarkMode as Moon,
   LightMode as Sun,
   BarChart as BarChart3,
-  Lock
+  Lock,
+  People
 } from '@mui/icons-material';
 
 const Layout = ({ darkMode, toggleDarkMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { user } = useContext(AuthContext);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -29,6 +32,7 @@ const Layout = ({ darkMode, toggleDarkMode }) => {
     { path: '/logs', name: 'Logs', icon: FileText },
     { path: '/ip-whitelist', name: 'IP Whitelist', icon: Shield },
     { path: '/sessions', name: 'Sessions', icon: Lock },
+    ...(user?.role === 'admin' ? [{ path: '/users', name: 'User Management', icon: People }] : []),
     { path: '/settings', name: 'Settings', icon: Settings },
   ];
 

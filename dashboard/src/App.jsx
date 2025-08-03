@@ -16,6 +16,7 @@ import Logs from './pages/Logs';
 import IPWhitelist from './pages/IPWhitelist';
 import Sessions from './pages/Sessions';
 import Analytics from './pages/Analytics-MUI';
+import UserManagement from './pages/UserManagement';
 
 // Contexts
 import { AuthProvider } from './contexts/AuthContext-Debug'; // Use debug version
@@ -195,6 +196,7 @@ function App() {
                       <Route path="ip-whitelist" element={<IPWhitelist />} />
                       <Route path="sessions" element={<Sessions />} />
                       <Route path="analytics" element={<Analytics />} />
+                      <Route path="users" element={<UserManagement />} />
                     </Route>
                   </Routes>
                 </AnimatePresence>

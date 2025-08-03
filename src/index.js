@@ -10,7 +10,7 @@ const { setupHealthCheck } = require('./lib/health');
 const { AuthHandler } = require('./auth/auth-handler');
 const { RelayHandler } = require('./handlers/relay-handler');
 const { QueueManager } = require('./lib/queue-manager');
-const APIServer = require('./api/server-simple'); // Use simplified server
+const APIServer = require('./api/server'); // Use production server
 
 // Load configuration
 const configPath = path.join(__dirname, '..', 'config.yml');

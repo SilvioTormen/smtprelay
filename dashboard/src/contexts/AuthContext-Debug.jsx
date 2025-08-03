@@ -76,7 +76,11 @@ export const AuthProvider = ({ children }) => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ username, password, totpToken })
+        body: JSON.stringify({ 
+          username, 
+          password, 
+          ...(totpToken && { totpToken })  // Only include if totpToken exists
+        })
       });
 
       const data = await response.json();

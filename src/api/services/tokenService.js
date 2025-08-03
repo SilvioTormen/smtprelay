@@ -1,14 +1,51 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const Redis = require('ioredis');
 
-// Redis client for token management
-const redis = new Redis({
-  host: process.env.REDIS_HOST || 'localhost',
-  port: process.env.REDIS_PORT || 6379,
-  password: process.env.REDIS_PASSWORD,
-  retryStrategy: (times) => Math.min(times * 50, 2000)
-});
+// Mock Redis implementation for development (Redis disabled)
+class MockRedis {
+  constructor() {
+    this.store = new Map();
+  }
+  
+  async get(key) {
+    return this.store.get(key) || null;
+  }
+  
+  async set(key, value, mode, ttl) {
+    this.store.set(key, value);
+    if (ttl) {
+      setTimeout(() => this.store.delete(key), ttl * 1000);
+    }
+    return 'OK';
+  }
+  
+  async del(key) {
+    return this.store.delete(key) ? 1 : 0;
+  }
+  
+  async sadd(key, ...members) {
+    const set = this.store.get(key) || new Set();
+    members.forEach(m => set.add(m));
+    this.store.set(key, set);
+    return members.length;
+  }
+  
+  async sismember(key, member) {
+    const set = this.store.get(key);
+    return set && set.has(member) ? 1 : 0;
+  }
+  
+  async expire(key, seconds) {
+    if (this.store.has(key)) {
+      setTimeout(() => this.store.delete(key), seconds * 1000);
+      return 1;
+    }
+    return 0;
+  }
+}
+
+// Use mock Redis to avoid connection errors
+const redis = new MockRedis();
 
 // Token families for tracking refresh token chains
 const tokenFamilies = new Map();
