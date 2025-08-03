@@ -298,15 +298,24 @@ const validatePasswordStrength = (password) => {
   };
 };
 
-// Input sanitization
+// Input sanitization with complete coverage
 const sanitizeInput = (input) => {
-  if (typeof input !== 'string') return input;
+  if (typeof input !== 'string') return '';
   
-  // Remove any potential XSS attempts
-  return input
-    .replace(/[<>]/g, '') // Remove angle brackets
+  // Limit input length to prevent DoS
+  const truncated = input.substring(0, 256);
+  
+  // Comprehensive sanitization for XSS and injection attacks
+  return truncated
+    .replace(/[<>"'`]/g, '') // Remove all quote types and angle brackets
     .replace(/javascript:/gi, '') // Remove javascript: protocol
-    .replace(/on\w+=/gi, '') // Remove event handlers
+    .replace(/data:/gi, '') // Remove data: URIs
+    .replace(/vbscript:/gi, '') // Remove vbscript: protocol
+    .replace(/on\w+\s*=/gi, '') // Remove event handlers with any spacing
+    .replace(/[\x00-\x1F\x7F]/g, '') // Remove control characters
+    .replace(/[\r\n]/g, '') // Remove line breaks to prevent log injection
+    .replace(/\\/g, '') // Remove backslashes to prevent escape sequences
+    .replace(/[;|&$(){}[\]]/g, '') // Remove shell metacharacters
     .trim();
 };
 

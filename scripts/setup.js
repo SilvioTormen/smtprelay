@@ -7,7 +7,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 const crypto = require('crypto');
 const readline = require('readline');
 
@@ -222,10 +222,14 @@ LOG_DIR=/var/log/smtp-relay
     if (fs.existsSync(dashboardPackageJson)) {
       try {
         console.log('\n📦 Installing dashboard dependencies...');
-        execSync('npm install --prefix dashboard', { 
+        // Use spawnSync to prevent command injection
+        const result = spawnSync('npm', ['install', '--prefix', 'dashboard'], { 
           cwd: path.join(__dirname, '..'),
           stdio: this.nonInteractive ? 'ignore' : 'inherit'
         });
+        if (result.error) {
+          throw result.error;
+        }
         this.success.push('✅ Dashboard dependencies installed');
       } catch (error) {
         this.warnings.push('⚠️  Could not install dashboard dependencies');
@@ -286,16 +290,30 @@ LOG_DIR=/var/log/smtp-relay
         
         // Check if openssl is available
         try {
-          execSync('which openssl', { stdio: 'ignore' });
+          spawnSync('which', ['openssl'], { stdio: 'ignore' });
         } catch {
           this.warnings.push('⚠️  OpenSSL not found - cannot generate certificates');
           return;
         }
         
-        execSync(`openssl req -x509 -newkey rsa:4096 -keyout ${keyPath} -out ${certPath} -days 365 -nodes -subj "/CN=smtp-relay.local"`, {
+        // Use spawn with array arguments to prevent command injection
+        const { spawnSync } = require('child_process');
+        const result = spawnSync('openssl', [
+          'req', '-x509', 
+          '-newkey', 'rsa:4096',
+          '-keyout', keyPath,
+          '-out', certPath,
+          '-days', '365',
+          '-nodes',
+          '-subj', '/CN=smtp-relay.local'
+        ], {
           cwd: certsDir,
           stdio: 'ignore'
         });
+        
+        if (result.error) {
+          throw result.error;
+        }
         this.success.push('✅ Generated self-signed certificates');
       } catch (error) {
         this.warnings.push('⚠️  Could not generate certificates - TLS may not work');
@@ -310,7 +328,10 @@ LOG_DIR=/var/log/smtp-relay
 
   checkRedis() {
     try {
-      execSync('redis-cli ping', { stdio: 'ignore' });
+      const result = spawnSync('redis-cli', ['ping'], { stdio: 'ignore' });
+      if (result.status !== 0) {
+        throw new Error('Redis not available');
+      }
       this.success.push('✅ Redis is running');
     } catch (error) {
       this.warnings.push('⚠️  Redis not running - sessions and caching disabled');
@@ -333,7 +354,7 @@ LOG_DIR=/var/log/smtp-relay
     try {
       // First check if firewall-cmd exists
       try {
-        execSync('which firewall-cmd', { stdio: 'ignore' });
+        spawnSync('which', ['firewall-cmd'], { stdio: 'ignore' });
       } catch {
         this.warnings.push('⚠️  firewalld not installed - firewall check skipped');
         return;
@@ -342,11 +363,16 @@ LOG_DIR=/var/log/smtp-relay
       // Try without sudo first (if we're already root)
       let result;
       try {
-        result = execSync('firewall-cmd --list-ports', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+        const cmdResult = spawnSync('firewall-cmd', ['--list-ports'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+        if (cmdResult.status === 0 && cmdResult.stdout) {
+          result = cmdResult.stdout;
+        } else {
+          throw new Error('Cannot access firewall');
+        }
       } catch {
         // If that fails and we're root, firewalld might not be running
         try {
-          execSync('systemctl is-active firewalld', { stdio: 'ignore' });
+          spawnSync('systemctl', ['is-active', 'firewalld'], { stdio: 'ignore' });
           // Firewalld is running but we can't access it
           throw new Error('Cannot access firewall');
         } catch {
