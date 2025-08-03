@@ -237,7 +237,6 @@ const Layout = ({ darkMode, toggleDarkMode }) => {
                 px: 2.5,
                 color: 'error.main',
                 '&:hover': {
-                  backgroundColor: 'error.light',
                   backgroundColor: (theme) => 
                     theme.palette.mode === 'dark' 
                       ? 'rgba(244, 67, 54, 0.08)'

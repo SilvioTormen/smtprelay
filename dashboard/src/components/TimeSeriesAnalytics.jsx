@@ -17,7 +17,7 @@ import {
   Dot
 } from 'recharts';
 import { format, subHours, startOfHour } from 'date-fns';
-import { TrendingUp, TrendingDown, AlertTriangle, Activity } from 'lucide-react';
+import { TrendingUp, TrendingDown, Warning as AlertTriangle, ShowChart as Activity } from '@mui/icons-material';
 
 // Simple anomaly detection using z-score
 const detectAnomalies = (data, threshold = 2.5) => {

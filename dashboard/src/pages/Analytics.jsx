@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext-Debug';
 import EmailFlowSankey from '../components/EmailFlowSankey';
 import GeoHeatMap from '../components/GeoHeatMap';
 import TimeSeriesAnalytics from '../components/TimeSeriesAnalytics';
 import DeviceHealthMonitor from '../components/DeviceHealthMonitor';
 import {
-  BarChart3,
-  Globe,
-  Activity,
-  Monitor,
+  BarChart as BarChart3,
+  Public as Globe,
+  ShowChart as Activity,
+  Computer as Monitor,
   Download,
-  RefreshCw,
-  Bell,
+  Refresh as RefreshCw,
+  Notifications as Bell,
   TrendingUp,
-  AlertTriangle
-} from 'lucide-react';
+  Warning as AlertTriangle
+} from '@mui/icons-material';
 
 const Analytics = () => {
   const { apiRequest } = useAuth();

@@ -2,19 +2,19 @@ import React, { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
-  Server,
+  Storage as Server,
   Mail,
   Settings,
-  FileText,
-  Shield,
-  LogOut,
+  Description as FileText,
+  Security as Shield,
+  Logout as LogOut,
   Menu,
-  X,
-  Moon,
-  Sun,
-  BarChart3,
+  Close as X,
+  DarkMode as Moon,
+  LightMode as Sun,
+  BarChart as BarChart3,
   Lock
-} from 'lucide-react';
+} from '@mui/icons-material';
 
 const Layout = ({ darkMode, toggleDarkMode }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);

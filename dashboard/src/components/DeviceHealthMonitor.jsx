@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Monitor,
+  Computer as Monitor,
   Wifi,
   WifiOff,
-  AlertTriangle,
+  Warning as AlertTriangle,
   CheckCircle,
-  XCircle,
-  Clock,
-  Activity,
+  Cancel as XCircle,
+  AccessTime as Clock,
+  ShowChart as Activity,
   TrendingUp,
   TrendingDown,
-  Server,
+  Storage as Server,
   Mail,
-  Zap,
-  AlertCircle,
-  RefreshCw
-} from 'lucide-react';
+  Bolt as Zap,
+  Error as AlertCircle,
+  Refresh as RefreshCw
+} from '@mui/icons-material';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 const DeviceHealthMonitor = ({ devices, onDeviceSelect, autoRefresh = true }) => {
