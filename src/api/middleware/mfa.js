@@ -8,16 +8,15 @@ const base64url = require('base64url');
 const OTPAuth = require('otpauth');
 const qrcode = require('qrcode');
 const cryptoRandomString = require('crypto-random-string');
+const mfaService = require('../services/mfaService');
 
 // Configuration
 const RP_NAME = 'SMTP Relay Control Center';
 const RP_ID = process.env.RP_ID || 'localhost';
-const ORIGIN = process.env.ORIGIN || 'http://localhost:3000';
+const ORIGIN = process.env.ORIGIN || 'http://localhost:3001';
 
-// In-memory stores (use database in production)
-const userCredentials = new Map(); // userId -> credentials[]
-const challenges = new Map(); // userId -> challenge
-const backupCodes = new Map(); // userId -> codes[]
+// In-memory stores for temporary data
+const challenges = new Map(); // userId -> challenge (temporary for FIDO2 flow)
 
 /**
  * TOTP (Time-based One-Time Password) - Microsoft/Google Authenticator
@@ -28,6 +27,16 @@ class TOTPManager {
    * Compatible with Microsoft Authenticator, Google Authenticator, Authy, etc.
    */
   static generateSecret(username, issuer = 'SMTP Relay') {
+    // Generate a random base32 secret
+    const crypto = require('crypto');
+    const randomBytes = crypto.randomBytes(20);
+    const base32Chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    let secret = '';
+    
+    for (let i = 0; i < randomBytes.length; i++) {
+      secret += base32Chars[randomBytes[i] % 32];
+    }
+    
     // Create TOTP instance
     const totp = new OTPAuth.TOTP({
       issuer: issuer,
@@ -35,11 +44,7 @@ class TOTPManager {
       algorithm: 'SHA1', // Most compatible
       digits: 6,
       period: 30,
-      secret: OTPAuth.Secret.fromBase32(
-        base64url.toBase64(cryptoRandomString({ length: 20 }))
-          .replace(/=/g, '')
-          .toUpperCase()
-      ),
+      secret: OTPAuth.Secret.fromBase32(secret),
     });
 
     return {
@@ -117,12 +122,15 @@ class FIDO2Manager {
    */
   static async generateRegistration(userId, username, displayName) {
     // Get existing credentials for this user
-    const existingCredentials = userCredentials.get(userId) || [];
+    const existingCredentials = await mfaService.getFIDO2Devices(userId);
+
+    // Convert userId to a buffer for WebAuthn
+    const userIdBuffer = Buffer.from(userId.toString());
 
     const options = await generateRegistrationOptions({
       rpName: RP_NAME,
       rpID: RP_ID,
-      userID: userId,
+      userID: userIdBuffer,
       userName: username,
       userDisplayName: displayName || username,
       attestationType: 'direct', // Request attestation for better security
@@ -170,8 +178,8 @@ class FIDO2Manager {
           verification.registrationInfo;
 
         // Store credential
-        const credentials = userCredentials.get(userId) || [];
-        credentials.push({
+        const existingDevices = await mfaService.getFIDO2Devices(userId);
+        const newDevice = {
           credentialID: base64url.encode(credentialID),
           publicKey: base64url.encode(credentialPublicKey),
           counter,
@@ -180,9 +188,9 @@ class FIDO2Manager {
           transports: response.response.transports || ['usb', 'nfc', 'ble'],
           registered: new Date().toISOString(),
           lastUsed: null,
-          name: `Security Key ${credentials.length + 1}`, // Can be renamed by user
-        });
-        userCredentials.set(userId, credentials);
+          name: `Security Key ${existingDevices.length + 1}`, // Can be renamed by user
+        };
+        await mfaService.addFIDO2Device(userId, newDevice);
 
         // Clean up challenge
         challenges.delete(userId);
@@ -204,7 +212,7 @@ class FIDO2Manager {
    * Generate authentication options for FIDO2
    */
   static async generateAuthentication(userId) {
-    const credentials = userCredentials.get(userId) || [];
+    const credentials = await mfaService.getFIDO2Devices(userId);
     
     if (credentials.length === 0) {
       throw new Error('No registered devices for user');
@@ -236,9 +244,9 @@ class FIDO2Manager {
       throw new Error('No challenge found');
     }
 
-    const credentials = userCredentials.get(userId) || [];
+    const credentials = await mfaService.getFIDO2Devices(userId);
     const credential = credentials.find(
-      cred => cred.credentialID === response.id
+      cred => (cred.credentialID === response.id || cred.id === response.id)
     );
 
     if (!credential) {
@@ -261,8 +269,17 @@ class FIDO2Manager {
 
       if (verification.verified) {
         // Update counter and last used
-        credential.counter = verification.authenticationInfo.newCounter;
-        credential.lastUsed = new Date().toISOString();
+        const updatedDevices = credentials.map(device => {
+          if (device.id === credential.id || device.credentialID === credential.credentialID) {
+            return {
+              ...device,
+              counter: verification.authenticationInfo.newCounter,
+              lastUsed: new Date().toISOString()
+            };
+          }
+          return device;
+        });
+        await mfaService.setUserMFA(userId, { fido2Devices: updatedDevices });
         
         // Clean up challenge
         challenges.delete(userId);
@@ -278,10 +295,10 @@ class FIDO2Manager {
   /**
    * List registered devices for user
    */
-  static getDevices(userId) {
-    const credentials = userCredentials.get(userId) || [];
+  static async getDevices(userId) {
+    const credentials = await mfaService.getFIDO2Devices(userId);
     return credentials.map(cred => ({
-      id: cred.credentialID,
+      id: cred.id || cred.credentialID,
       name: cred.name,
       deviceType: cred.deviceType,
       registered: cred.registered,
@@ -293,24 +310,24 @@ class FIDO2Manager {
   /**
    * Remove a device
    */
-  static removeDevice(userId, credentialId) {
-    const credentials = userCredentials.get(userId) || [];
-    const filtered = credentials.filter(cred => cred.credentialID !== credentialId);
-    userCredentials.set(userId, filtered);
-    return filtered.length < credentials.length;
+  static async removeDevice(userId, credentialId) {
+    await mfaService.removeFIDO2Device(userId, credentialId);
+    return true;
   }
 
   /**
    * Rename a device
    */
-  static renameDevice(userId, credentialId, newName) {
-    const credentials = userCredentials.get(userId) || [];
-    const credential = credentials.find(cred => cred.credentialID === credentialId);
-    if (credential) {
-      credential.name = newName;
-      return true;
-    }
-    return false;
+  static async renameDevice(userId, credentialId, newName) {
+    const devices = await mfaService.getFIDO2Devices(userId);
+    const updatedDevices = devices.map(device => {
+      if (device.id === credentialId || device.credentialID === credentialId) {
+        return { ...device, name: newName };
+      }
+      return device;
+    });
+    await mfaService.setUserMFA(userId, { fido2Devices: updatedDevices });
+    return true;
   }
 }
 
@@ -321,48 +338,33 @@ class BackupCodesManager {
   /**
    * Generate backup codes
    */
-  static generateCodes(userId, count = 10) {
-    const codes = [];
-    for (let i = 0; i < count; i++) {
-      codes.push({
-        code: `${cryptoRandomString({ length: 4, type: 'numeric' })}-${cryptoRandomString({ length: 4, type: 'numeric' })}`,
-        used: false,
-        created: new Date().toISOString(),
-      });
-    }
-    backupCodes.set(userId, codes);
-    return codes.map(c => c.code);
+  static async generateCodes(userId, count = 10) {
+    const plainCodes = await mfaService.generateBackupCodes(userId, count);
+    // Format codes for display
+    return plainCodes.map(code => `${code.slice(0, 4)}-${code.slice(4)}`);
   }
 
   /**
    * Verify backup code
    */
-  static verifyCode(userId, code) {
-    const codes = backupCodes.get(userId) || [];
-    const backupCode = codes.find(c => c.code === code && !c.used);
-    
-    if (backupCode) {
-      backupCode.used = true;
-      backupCode.usedAt = new Date().toISOString();
-      return true;
-    }
-    
-    return false;
+  static async verifyCode(userId, code) {
+    // Remove formatting from code if present
+    const cleanCode = code.replace(/-/g, '').toUpperCase();
+    return await mfaService.verifyBackupCode(userId, cleanCode);
   }
 
   /**
    * Get remaining codes count
    */
-  static getRemainingCount(userId) {
-    const codes = backupCodes.get(userId) || [];
-    return codes.filter(c => !c.used).length;
+  static async getRemainingCount(userId) {
+    return await mfaService.getRemainingBackupCodes(userId);
   }
 
   /**
    * Regenerate codes (invalidates old ones)
    */
-  static regenerateCodes(userId, count = 10) {
-    return this.generateCodes(userId, count);
+  static async regenerateCodes(userId, count = 10) {
+    return await this.generateCodes(userId, count);
   }
 }
 
@@ -394,9 +396,9 @@ const requireMFA = async (req, res, next) => {
     switch (method) {
       case 'totp':
         // Verify TOTP
-        const user = require('./auth').users.get(req.user.username);
-        if (user?.totpSecret) {
-          verified = TOTPManager.verifyToken(user.totpSecret, token);
+        const mfaData = await mfaService.getUserMFA(userId);
+        if (mfaData?.totpSecret) {
+          verified = TOTPManager.verifyToken(mfaData.totpSecret, token);
         }
         break;
         
