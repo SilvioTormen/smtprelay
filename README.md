@@ -55,6 +55,25 @@ ansible-playbook -i inventory/hosts.yml ansible/deploy.yml
 
 ### 2. Manuelle Installation
 
+#### Schritt 1: Node.js installieren (WICHTIG - zuerst prüfen!)
+
+```bash
+# Prüfen ob Node.js installiert ist
+node --version
+
+# Falls nicht installiert:
+
+# Für RHEL/Rocky/AlmaLinux 8-9:
+curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+sudo dnf install -y nodejs
+
+# Für RHEL 10 (hat normalerweise Node.js 22 vorinstalliert):
+# Falls nicht vorhanden:
+sudo dnf install nodejs npm
+```
+
+#### Schritt 2: Repository klonen und Setup
+
 ```bash
 # Repository klonen
 git clone https://github.com/SilvioTormen/smtprelay.git
@@ -112,16 +131,6 @@ sudo iptables -t nat -A PREROUTING -p tcp --dport 587 -j REDIRECT --to-port 2587
 sudo iptables -t nat -A PREROUTING -p tcp --dport 465 -j REDIRECT --to-port 2465
 ```
 
-#### Node.js Installation (falls benötigt)
-
-```bash
-# Für RHEL/Rocky/AlmaLinux 8-9:
-curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-sudo dnf install -y nodejs
-
-# Für RHEL 10 (hat Node.js 22 vorinstalliert):
-# Keine Installation nötig, verwende System-Node.js
-```
 
 ### 3. Mit PM2 (empfohlen für Entwicklung)
 
