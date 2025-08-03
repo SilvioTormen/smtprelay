@@ -64,9 +64,10 @@ import {
   Block as BlockIcon,
   VpnKey as KeyIcon
 } from '@mui/icons-material';
-import { enqueueSnackbar } from 'notistack';
+import { useSnackbar } from 'notistack';
 
 const IPWhitelist = () => {
+  const { enqueueSnackbar } = useSnackbar();
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState(0);
