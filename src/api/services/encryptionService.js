@@ -22,14 +22,14 @@ class EncryptionService {
       try {
         const keyData = await fs.readFile(this.keyFile, 'utf8');
         this.key = Buffer.from(keyData, 'hex');
-        console.log('✅ Loaded existing encryption key');
+        console.log('✅ Loaded existing encryption configuration');
       } catch (error) {
         // Generate new key if not exists
         this.key = crypto.randomBytes(32);
         await fs.writeFile(this.keyFile, this.key.toString('hex'), {
           mode: 0o600 // Read/write for owner only
         });
-        console.log('🔐 Generated new encryption key');
+        console.log('🔐 Generated new encryption configuration');
       }
 
       this.initialized = true;
@@ -224,7 +224,7 @@ class EncryptionService {
         mode: 0o600
       });
       
-      console.log('✅ Encryption key rotated successfully');
+      console.log('✅ Encryption configuration rotated successfully');
     } catch (error) {
       // Restore old key on error
       this.key = oldKey;

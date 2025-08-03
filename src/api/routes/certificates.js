@@ -83,14 +83,26 @@ const execCommand = (command, args = [], options = {}) => {
 
 // Security: Validate and sanitize file paths with additional checks
 const sanitizePath = async (filepath) => {
-  // Remove any path traversal attempts
-  const normalized = path.normalize(filepath).replace(/^(\.\.(\/|\\|$))+/, '');
+  // Strict validation: only allow specific filenames
+  const allowedFiles = ['cert.pem', 'key.pem', 'chain.pem', 'ca.pem'];
   
-  // Ensure path is within allowed directory
+  // Extract basename and validate against whitelist
+  const basename = path.basename(filepath);
+  if (!allowedFiles.includes(basename)) {
+    throw new Error('Invalid filename');
+  }
+  
+  // Get the certificates directory
   const certsDir = path.resolve(__dirname, '../../../certs');
-  const resolved = path.resolve(certsDir, normalized);
   
-  if (!resolved.startsWith(certsDir)) {
+  // Build the full path using only the validated basename
+  const resolved = path.join(certsDir, basename);
+  
+  // Double-check the resolved path is within certs directory
+  const realCertsDir = await fs.realpath(certsDir).catch(() => certsDir);
+  const resolvedParent = path.dirname(resolved);
+  
+  if (resolvedParent !== realCertsDir && resolvedParent !== certsDir) {
     throw new Error('Invalid path');
   }
   
@@ -98,7 +110,11 @@ const sanitizePath = async (filepath) => {
   try {
     const stats = await fs.lstat(resolved);
     if (stats.isSymbolicLink()) {
-      throw new Error('Symlinks not allowed');
+      // Resolve the symlink and check it's still within bounds
+      const realPath = await fs.realpath(resolved);
+      if (!realPath.startsWith(realCertsDir)) {
+        throw new Error('Symlinks must point within certs directory');
+      }
     }
   } catch (e) {
     // File doesn't exist yet, which is okay for write operations
@@ -378,8 +394,17 @@ router.post('/upload',
 
       // Create secure backup with random name
       const certsDir = path.resolve(__dirname, '../../../certs');
-      const backupId = crypto.randomBytes(16).toString('hex');
+      const backupId = crypto.randomBytes(16).toString('hex').replace(/[^a-f0-9]/gi, '');
+      // Validate backup ID is safe
+      if (!/^[a-f0-9]{32}$/i.test(backupId)) {
+        throw new Error('Invalid backup ID generated');
+      }
       const backupDir = path.join(certsDir, 'backup', backupId);
+      // Ensure backup directory is within certs
+      const realCertsDir = await fs.realpath(certsDir).catch(() => certsDir);
+      if (!backupDir.startsWith(realCertsDir) && !backupDir.startsWith(certsDir)) {
+        throw new Error('Invalid backup directory');
+      }
       await fs.mkdir(backupDir, { recursive: true, mode: 0o700 });
 
       // Backup existing certificates
@@ -492,8 +517,17 @@ router.post('/generate-self-signed',
 
       // Create backup
       const certsDir = path.resolve(__dirname, '../../../certs');
-      const backupId = crypto.randomBytes(16).toString('hex');
+      const backupId = crypto.randomBytes(16).toString('hex').replace(/[^a-f0-9]/gi, '');
+      // Validate backup ID is safe
+      if (!/^[a-f0-9]{32}$/i.test(backupId)) {
+        throw new Error('Invalid backup ID generated');
+      }
       const backupDir = path.join(certsDir, 'backup', backupId);
+      // Ensure backup directory is within certs
+      const realCertsDir = await fs.realpath(certsDir).catch(() => certsDir);
+      if (!backupDir.startsWith(realCertsDir) && !backupDir.startsWith(certsDir)) {
+        throw new Error('Invalid backup directory');
+      }
       await fs.mkdir(backupDir, { recursive: true, mode: 0o700 });
 
       // Backup existing
