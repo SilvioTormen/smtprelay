@@ -25,10 +25,11 @@ Ein einfacher, robuster SMTP Relay Service für Legacy-Geräte (Drucker, Scanner
 ## 📋 Voraussetzungen
 
 - Red Hat Enterprise Linux 8/9/10 oder kompatibel (Rocky Linux, AlmaLinux, CentOS Stream)
-- Node.js 18+ (LTS empfohlen: v20.x)
+- Node.js 18+ (LTS empfohlen: v20.x, RHEL 10 hat v22 vorinstalliert)
 - Exchange Online/Microsoft 365 Account mit aktivem Abonnement
 - Azure AD App Registration für OAuth2
 - Firmen-internes Netzwerk oder sichere DMZ
+- Redis (optional, für Sessions und Caching)
 
 ## 🚀 Schnellstart
 
@@ -55,34 +56,71 @@ ansible-playbook -i inventory/hosts.yml ansible/deploy.yml
 ### 2. Manuelle Installation
 
 ```bash
-# Node.js 20 LTS installieren (empfohlen)
-curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-sudo dnf install -y nodejs
-
-# Alternativ für RHEL 10:
-sudo dnf module enable nodejs:20
-sudo dnf install -y nodejs
-
 # Repository klonen
 git clone https://github.com/SilvioTormen/smtprelay.git
 cd smtprelay
 
-# Dependencies installieren
+# Dependencies installieren (inkl. Dashboard)
 npm install
+npm install --prefix dashboard
 
-# Initial Setup ausführen (prüft Prerequisites)
+# Initial Setup ausführen (generiert .env automatisch)
 npm run setup
 
-# OAuth2 Setup Wizard ausführen
+# Non-Interactive Mode für Automatisierung:
+npm run setup -- --non-interactive
+
+# OAuth2 Setup Wizard ausführen (optional)
 npm run setup:auth
 
-# Secrets generieren für Production
-npm run security:generate
+# Service-Benutzer anlegen
+sudo useradd -r -s /bin/false smtp-relay
+
+# Dateien verschieben und Berechtigungen setzen
+sudo mv ../smtprelay /opt/smtp-relay
+sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay
+sudo mkdir -p /var/log/smtp-relay
+sudo chown smtp-relay:smtp-relay /var/log/smtp-relay
 
 # Als Service installieren
-sudo cp smtp-relay.service /etc/systemd/system/
+sudo cp /opt/smtp-relay/smtp-relay.service /etc/systemd/system/
+sudo systemctl daemon-reload
 sudo systemctl enable smtp-relay
 sudo systemctl start smtp-relay
+
+# Status prüfen
+sudo systemctl status smtp-relay
+sudo journalctl -u smtp-relay -f
+```
+
+#### Port-Berechtigungen
+
+Der Service nutzt standardmäßig Ports > 1024 (2525, 2587, 2465) um Berechtigungsprobleme zu vermeiden.
+
+Für Standard SMTP-Ports (25, 587, 465):
+
+```bash
+# Option 1: Capabilities für Node.js setzen (empfohlen)
+sudo setcap 'cap_net_bind_service=+ep' $(which node)
+
+# Option 2: Systemd Capabilities (bereits in Service-Datei konfiguriert)
+# Der Service hat CAP_NET_BIND_SERVICE bereits aktiviert
+
+# Option 3: Port-Forwarding mit iptables
+sudo iptables -t nat -A PREROUTING -p tcp --dport 25 -j REDIRECT --to-port 2525
+sudo iptables -t nat -A PREROUTING -p tcp --dport 587 -j REDIRECT --to-port 2587
+sudo iptables -t nat -A PREROUTING -p tcp --dport 465 -j REDIRECT --to-port 2465
+```
+
+#### Node.js Installation (falls benötigt)
+
+```bash
+# Für RHEL/Rocky/AlmaLinux 8-9:
+curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
+sudo dnf install -y nodejs
+
+# Für RHEL 10 (hat Node.js 22 vorinstalliert):
+# Keine Installation nötig, verwende System-Node.js
 ```
 
 ### 3. Mit PM2 (empfohlen für Entwicklung)

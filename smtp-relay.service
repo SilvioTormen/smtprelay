@@ -15,10 +15,12 @@ RestartSec=10
 
 # Security hardening
 NoNewPrivileges=true
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/log/smtp-relay /opt/smtp-relay/queue /opt/smtp-relay/logs
+ReadWritePaths=/var/log/smtp-relay /opt/smtp-relay/queue /opt/smtp-relay/logs /opt/smtp-relay/.temp /opt/smtp-relay/certs
 
 # Resource limits
 LimitNOFILE=65536
@@ -26,6 +28,7 @@ LimitNPROC=512
 
 # Environment
 Environment="NODE_ENV=production"
+EnvironmentFile=-/opt/smtp-relay/.env
 EnvironmentFile=-/etc/smtp-relay/smtp-relay.env
 
 # Logging
