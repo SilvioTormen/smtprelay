@@ -59,10 +59,19 @@ const SecurityKeySetup = ({ onComplete, existingDevices = [] }) => {
     setActiveStep(1);
 
     try {
+      // First get CSRF token
+      const csrfResponse = await fetch('/api/csrf-token', {
+        credentials: 'include'
+      });
+      const { csrfToken } = await csrfResponse.json();
+      
       // Step 1: Get registration options from server
       const beginResponse = await fetch('/api/mfa/fido2/register/begin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
+        },
         credentials: 'include',
       });
 
@@ -130,9 +139,18 @@ const SecurityKeySetup = ({ onComplete, existingDevices = [] }) => {
         },
       };
 
+      // Get new CSRF token for complete request
+      const csrfResponse2 = await fetch('/api/csrf-token', {
+        credentials: 'include'
+      });
+      const { csrfToken: csrfToken2 } = await csrfResponse2.json();
+      
       const completeResponse = await fetch('/api/mfa/fido2/register/complete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken2
+        },
         credentials: 'include',
         body: JSON.stringify({
           credential: credentialJSON,

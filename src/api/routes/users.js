@@ -32,13 +32,16 @@ const requireAdmin = (req, res, next) => {
 // Get all users (admin only)
 router.get('/', authenticate, requireAdmin, async (req, res) => {
   try {
-    const users = getUsers();
-    const userList = Array.from(users.values()).map(user => ({
+    // Use userService to get users from persistent storage
+    const userService = require('../services/userService');
+    const users = await userService.getAllUsers();
+    
+    const userList = users.map(user => ({
       id: user.id,
       username: user.username,
       role: user.role,
       permissions: user.permissions,
-      twoFactorEnabled: user.twoFactorEnabled,
+      twoFactorEnabled: user.twoFactorEnabled || user.totpEnabled,
       createdAt: user.createdAt || new Date().toISOString(),
       lastLogin: user.lastLogin || null,
       failedAttempts: user.failedAttempts || 0,
@@ -63,8 +66,9 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
 // Get single user (admin only)
 router.get('/:userId', authenticate, requireAdmin, async (req, res) => {
   try {
-    const users = getUsers();
-    const user = Array.from(users.values()).find(u => u.id === req.params.userId);
+    // Use userService to get user from persistent storage
+    const userService = require('../services/userService');
+    const user = await userService.getUserById(req.params.userId);
     
     if (!user) {
       return res.status(404).json({
@@ -80,7 +84,7 @@ router.get('/:userId', authenticate, requireAdmin, async (req, res) => {
         username: user.username,
         role: user.role,
         permissions: user.permissions,
-        twoFactorEnabled: user.twoFactorEnabled,
+        twoFactorEnabled: user.twoFactorEnabled || user.totpEnabled,
         createdAt: user.createdAt || new Date().toISOString(),
         lastLogin: user.lastLogin || null,
         failedAttempts: user.failedAttempts || 0,
@@ -137,23 +141,16 @@ router.post('/',
         });
       }
 
-      // Create new user
-      const newUser = {
-        id: crypto.randomUUID(),
+      // Create new user using userService for persistence
+      const userService = require('../services/userService');
+      const newUser = await userService.createUser({
         username: sanitizeInput(username),
-        password: await hashPassword(password),
+        password: password, // userService will hash it
         role,
         permissions: permissions || getDefaultPermissions(role),
-        twoFactorSecret: null,
-        twoFactorEnabled: false,
-        failedAttempts: 0,
-        lockedUntil: null,
-        createdAt: new Date().toISOString(),
-        createdBy: req.user.userId,
-        lastLogin: null
-      };
-
-      users.set(username, newUser);
+        displayName: username, // Can be changed later
+        createdBy: req.user.userId
+      });
 
       // Log user creation
       console.log(`User created: ${username} by ${req.user.username}`);
@@ -199,8 +196,9 @@ router.put('/:userId',
         });
       }
 
-      const users = getUsers();
-      const user = Array.from(users.values()).find(u => u.id === req.params.userId);
+      // Use userService to get user from persistent storage
+      const userService = require('../services/userService');
+      const user = await userService.getUserById(req.params.userId);
       
       if (!user) {
         return res.status(404).json({
@@ -217,10 +215,12 @@ router.put('/:userId',
         });
       }
 
-      // Update role
+      const updates = {};
+
+      // Update role and permissions
       if (req.body.role) {
-        user.role = req.body.role;
-        user.permissions = req.body.permissions || getDefaultPermissions(req.body.role);
+        updates.role = req.body.role;
+        updates.permissions = req.body.permissions || getDefaultPermissions(req.body.role);
       }
 
       // Reset password if requested
@@ -233,19 +233,18 @@ router.put('/:userId',
             requirements: passwordValidation.errors
           });
         }
-        user.password = await hashPassword(req.body.newPassword);
-        user.passwordResetRequired = true;
+        updates.password = await hashPassword(req.body.newPassword);
+        updates.passwordResetRequired = true;
       }
 
       // Unlock account if requested
       if (req.body.unlockAccount) {
-        user.failedAttempts = 0;
-        user.lockedUntil = null;
+        updates.failedAttempts = 0;
+        updates.lockedUntil = null;
       }
 
-      // Update modification metadata
-      user.lastModified = new Date().toISOString();
-      user.modifiedBy = req.user.userId;
+      // Update using userService for persistence
+      const updatedUser = await userService.updateUser(user.username, updates);
 
       console.log(`User updated: ${user.username} by ${req.user.username}`);
 
@@ -253,11 +252,11 @@ router.put('/:userId',
         success: true,
         message: 'User updated successfully',
         user: {
-          id: user.id,
-          username: user.username,
-          role: user.role,
-          permissions: user.permissions,
-          isLocked: user.lockedUntil ? user.lockedUntil > Date.now() : false
+          id: updatedUser.id,
+          username: updatedUser.username,
+          role: updatedUser.role,
+          permissions: updatedUser.permissions,
+          isLocked: updatedUser.lockedUntil ? updatedUser.lockedUntil > Date.now() : false
         }
       });
     } catch (error) {
@@ -273,8 +272,9 @@ router.put('/:userId',
 // Delete user (admin only)
 router.delete('/:userId', authenticate, requireAdmin, async (req, res) => {
   try {
-    const users = getUsers();
-    const user = Array.from(users.values()).find(u => u.id === req.params.userId);
+    // Use userService to get all data from persistent storage
+    const userService = require('../services/userService');
+    const user = await userService.getUserById(req.params.userId);
     
     if (!user) {
       return res.status(404).json({
@@ -292,7 +292,8 @@ router.delete('/:userId', authenticate, requireAdmin, async (req, res) => {
     }
 
     // Prevent deleting the last admin
-    const adminCount = Array.from(users.values()).filter(u => u.role === 'admin').length;
+    const allUsers = await userService.getAllUsers();
+    const adminCount = allUsers.filter(u => u.role === 'admin').length;
     if (user.role === 'admin' && adminCount <= 1) {
       return res.status(400).json({
         error: 'Cannot delete the last admin account',
@@ -300,8 +301,8 @@ router.delete('/:userId', authenticate, requireAdmin, async (req, res) => {
       });
     }
 
-    // Delete user
-    users.delete(user.username);
+    // Delete user using userService for persistence
+    await userService.deleteUser(user.username);
 
     console.log(`User deleted: ${user.username} by ${req.user.username}`);
 
@@ -321,8 +322,9 @@ router.delete('/:userId', authenticate, requireAdmin, async (req, res) => {
 // Reset user's 2FA (admin only)
 router.post('/:userId/reset-2fa', authenticate, requireAdmin, async (req, res) => {
   try {
-    const users = getUsers();
-    const user = Array.from(users.values()).find(u => u.id === req.params.userId);
+    // Use userService to manage users from persistent storage
+    const userService = require('../services/userService');
+    const user = await userService.getUserById(req.params.userId);
     
     if (!user) {
       return res.status(404).json({
@@ -331,8 +333,13 @@ router.post('/:userId/reset-2fa', authenticate, requireAdmin, async (req, res) =
       });
     }
 
-    user.twoFactorEnabled = false;
-    user.twoFactorSecret = null;
+    // Update user to disable 2FA
+    await userService.updateUser(user.username, {
+      twoFactorEnabled: false,
+      twoFactorSecret: null,
+      totpEnabled: false,
+      totpSecret: null
+    });
 
     console.log(`2FA reset for user: ${user.username} by ${req.user.username}`);
 

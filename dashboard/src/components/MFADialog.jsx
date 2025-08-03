@@ -73,10 +73,19 @@ const MFADialog = ({ open, onClose, mfaMethods, onVerify, username }) => {
     setError('');
 
     try {
+      // Get CSRF token first
+      const csrfResponse = await fetch('/api/csrf-token', {
+        credentials: 'include'
+      });
+      const { csrfToken } = await csrfResponse.json();
+      
       // Step 1: Get authentication options from server
       const beginResponse = await fetch('/api/mfa/fido2/authenticate/begin', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken
+        },
         credentials: 'include',
         body: JSON.stringify({ username }), // Pass username for authentication
       });
@@ -157,9 +166,18 @@ const MFADialog = ({ open, onClose, mfaMethods, onVerify, username }) => {
         },
       };
 
+      // Get new CSRF token for complete request
+      const csrfResponse2 = await fetch('/api/csrf-token', {
+        credentials: 'include'
+      });
+      const { csrfToken: csrfToken2 } = await csrfResponse2.json();
+      
       const completeResponse = await fetch('/api/mfa/fido2/authenticate/complete', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrfToken2
+        },
         credentials: 'include',
         body: JSON.stringify({
           credential: credentialJSON,

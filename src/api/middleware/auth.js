@@ -23,27 +23,36 @@ const authenticate = async (req, res, next) => {
   try {
     let token;
     
+    // Log authentication attempt
+    console.log(`[Auth] Attempting authentication for ${req.method} ${req.path}`);
+    console.log(`[Auth] Cookies present:`, Object.keys(req.cookies || {}));
+    
     // First, check for token in cookie (preferred)
     if (req.cookies && (req.cookies.accessToken || req.cookies.token)) {
       token = req.cookies.accessToken || req.cookies.token;
+      console.log(`[Auth] Token found in cookie`);
     } 
     // Fallback to Authorization header for backward compatibility (will be removed)
     else {
       const authHeader = req.headers.authorization;
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        console.log(`[Auth] No token found in cookies or headers`);
         return res.status(401).json({ 
           error: 'Authentication required',
           code: 'NO_TOKEN'
         });
       }
       token = authHeader.substring(7);
+      console.log(`[Auth] Token found in Authorization header`);
     }
 
     // Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log(`[Auth] Token verified for user:`, decoded.username, 'with role:', decoded.role);
 
     // Check if token is blacklisted (logout tokens)
     if (await isTokenBlacklisted(token)) {
+      console.log(`[Auth] Token has been revoked/blacklisted`);
       return res.status(401).json({ 
         error: 'Token has been revoked',
         code: 'TOKEN_REVOKED'
@@ -57,12 +66,18 @@ const authenticate = async (req, res, next) => {
       role: decoded.role,
       permissions: decoded.permissions || []
     };
+    
+    // Additional logging for debugging
+    console.log(`[Auth] User object set:`, req.user);
 
     // Log access for audit
     logAccess(req.user, req.path, req.method);
 
     next();
   } catch (error) {
+    console.log(`[Auth] Authentication failed:`, error.message);
+    console.log(`[Auth] Error type:`, error.name);
+    
     if (error.name === 'TokenExpiredError') {
       return res.status(401).json({ 
         error: 'Token expired',

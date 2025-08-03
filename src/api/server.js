@@ -218,7 +218,12 @@ class APIServer {
       
       // Validate CSRF token for state-changing operations
       const token = req.headers['x-csrf-token'] || req.body._csrf;
+      console.log(`[CSRF] Checking CSRF for ${req.method} ${req.path}`);
+      console.log(`[CSRF] Token from request:`, token ? 'present' : 'missing');
+      console.log(`[CSRF] Session token:`, req.session.csrfToken ? 'present' : 'missing');
+      
       if (!token || token !== req.session.csrfToken) {
+        console.log(`[CSRF] CSRF validation failed!`);
         return res.status(403).json({ 
           error: 'Invalid CSRF token',
           code: 'CSRF_VALIDATION_FAILED'

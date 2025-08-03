@@ -278,18 +278,26 @@ router.post('/fido2/register/complete', authenticate, async (req, res) => {
   try {
     const { credential, deviceName } = req.body;
     
+    console.log('FIDO2 registration complete for user:', req.user.username);
+    console.log('Session registration data:', req.session.fido2Registration ? 'present' : 'missing');
+    console.log('Credential received:', credential ? 'present' : 'missing');
+    
     if (!req.session.fido2Registration) {
+      console.log('ERROR: No registration session found');
       return res.status(400).json({
         error: 'Registration not initiated',
         code: 'NO_REGISTRATION',
       });
     }
 
+    console.log('Verifying registration for user ID:', req.user.id);
     const result = await FIDO2Manager.verifyRegistration(
       req.user.id,
       credential
     );
 
+    console.log('Verification result:', result);
+    
     if (result.verified) {
       // Rename device if name provided
       if (deviceName) {
@@ -325,13 +333,16 @@ router.post('/fido2/register/complete', authenticate, async (req, res) => {
         });
       }
     } else {
+      console.log('Verification failed. Result:', result);
       res.status(400).json({
         error: 'Registration verification failed',
         code: 'VERIFICATION_FAILED',
+        details: result.error || 'Unknown error'
       });
     }
   } catch (error) {
-    console.error('FIDO2 registration complete error:', error);
+    console.error('FIDO2 registration complete error:', error.message);
+    console.error('Stack trace:', error.stack);
     res.status(500).json({
       error: 'Failed to complete FIDO2 registration',
       code: 'FIDO2_REG_COMPLETE_ERROR',
