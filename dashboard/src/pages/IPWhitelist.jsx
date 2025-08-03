@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Shield,
-  Plus,
-  Trash2,
+  Security as Shield,
+  Add as Plus,
+  Delete as Trash2,
   Download,
   Upload,
   Search,
   Settings,
-  AlertCircle,
+  Error as AlertCircle,
   CheckCircle,
-  XCircle,
-  FileText,
-  Globe,
+  Cancel as XCircle,
+  Description as FileText,
+  Public as Globe,
   Mail,
   Lock,
-  Unlock,
+  LockOpen as Unlock,
   History,
-  Copy,
-  Eye,
-  EyeOff
-} from 'lucide-react';
+  ContentCopy as Copy,
+  Visibility as Eye,
+  VisibilityOff as EyeOff
+} from '@mui/icons-material';
 
 const IPWhitelist = () => {
   const [config, setConfig] = useState(null);

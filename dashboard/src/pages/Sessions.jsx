@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Shield,
-  Monitor,
-  Smartphone,
-  Globe,
-  Clock,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  LogOut,
-  Key,
-  RefreshCw,
-  MapPin,
-  Activity
-} from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+  Shield as ShieldIcon,
+  Computer as MonitorIcon,
+  Smartphone as SmartphoneIcon,
+  Public as GlobeIcon,
+  AccessTime as ClockIcon,
+  Warning as AlertTriangleIcon,
+  CheckCircle as CheckCircleIcon,
+  Cancel as XCircleIcon,
+  Logout as LogOutIcon,
+  VpnKey as KeyIcon,
+  Refresh as RefreshCwIcon,
+  LocationOn as MapPinIcon,
+  ShowChart as ActivityIcon
+} from '@mui/icons-material';
+import { useAuth } from '../contexts/AuthContext-Debug';
 
 const Sessions = () => {
   const [sessions, setSessions] = useState([]);
