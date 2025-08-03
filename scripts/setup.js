@@ -408,11 +408,13 @@ LOG_DIR=/var/log/smtp-relay
       console.log('1. Review and adjust .env configuration');
       console.log('2. Configure OAuth2: npm run setup:auth');
       console.log('3. Start service: npm start');
+      console.log('4. Check status: npm run status');
       console.log('\nFor production deployment:');
       console.log('- Change NODE_ENV to "production" in .env');
       console.log('- Update passwords and secrets');
       console.log('- Configure proper TLS certificates');
       console.log('- Use systemd service: sudo systemctl start smtp-relay');
+      console.log('- Check service status: npm run status');
     } else {
       console.log('❌ Please fix the errors before continuing');
       process.exit(1);
