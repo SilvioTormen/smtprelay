@@ -108,6 +108,12 @@ export const AuthProvider = ({ children }) => {
       // Store in sessionStorage for persistence
       sessionStorage.setItem('userInfo', JSON.stringify(data.user));
       
+      // Store token if provided
+      if (data.token) {
+        sessionStorage.setItem('authToken', data.token);
+        console.log('[AuthContext] Token stored');
+      }
+      
       console.log('[AuthContext] Login successful, user set:', data.user);
       
       // Navigate to dashboard
@@ -146,11 +152,15 @@ export const AuthProvider = ({ children }) => {
   const apiRequest = async (url, options = {}) => {
     console.log('[AuthContext] API Request to:', url);
     
+    // Get token from sessionStorage
+    const token = sessionStorage.getItem('authToken');
+    
     const requestOptions = {
       ...options,
       credentials: 'include', // Always include cookies
       headers: {
         'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }), // Add token if available
         ...options.headers
       }
     };
