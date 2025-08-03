@@ -141,19 +141,19 @@ const DeviceHealthMonitor = ({ devices, onDeviceSelect, autoRefresh }) => {
         {/* Summary Stats */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid item xs={6} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center', backgroundColor: theme.palette.success.light + '20' }}>
+            <Paper sx={{ p: 2, textAlign: 'center', backgroundColor: `${theme.palette.success.light}20` }}>
               <Typography variant="h4" color="success.main">{stats.healthy}</Typography>
               <Typography variant="caption">Online</Typography>
             </Paper>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center', backgroundColor: theme.palette.warning.light + '20' }}>
+            <Paper sx={{ p: 2, textAlign: 'center', backgroundColor: `${theme.palette.warning.light}20` }}>
               <Typography variant="h4" color="warning.main">{stats.warning}</Typography>
               <Typography variant="caption">Warning</Typography>
             </Paper>
           </Grid>
           <Grid item xs={6} sm={3}>
-            <Paper sx={{ p: 2, textAlign: 'center', backgroundColor: theme.palette.error.light + '20' }}>
+            <Paper sx={{ p: 2, textAlign: 'center', backgroundColor: `${theme.palette.error.light}20` }}>
               <Typography variant="h4" color="error.main">{stats.critical}</Typography>
               <Typography variant="caption">Critical</Typography>
             </Paper>
@@ -255,7 +255,10 @@ const DeviceHealthMonitor = ({ devices, onDeviceSelect, autoRefresh }) => {
                         <Avatar sx={{ 
                           width: 32, 
                           height: 32,
-                          backgroundColor: theme.palette[getStatusColor(device.status)].light 
+                          backgroundColor: 
+                            getStatusColor(device.status) === 'default' 
+                              ? theme.palette.grey[300]
+                              : theme.palette[getStatusColor(device.status)].light 
                         }}>
                           {getDeviceIcon(device.type)}
                         </Avatar>
