@@ -35,18 +35,40 @@ class OAuth2FlowManager {
     const tenantId = this.config.auth.tenant_id || 'common';
     const clientId = this.config.auth.client_id;
     
+    // Validate configuration
+    if (!clientId || clientId === 'your-client-id') {
+      throw new Error('Invalid Client ID. Please configure a valid Azure AD Application ID');
+    }
+    
+    if (!tenantId || tenantId === 'your-tenant-id') {
+      throw new Error('Invalid Tenant ID. Please configure a valid Azure AD Tenant ID or use "common"');
+    }
+    
     this.logger.info('Starting Device Code Flow...');
+    this.logger.info(`Tenant ID: ${tenantId}`);
+    this.logger.info(`Client ID: ${clientId}`);
     
     const credential = new DeviceCodeCredential({
       tenantId,
       clientId,
       userPromptCallback: (info) => {
+        // Check if info is properly received
+        if (!info || !info.verificationUri || !info.userCode) {
+          console.error('\n❌ Error: Device code information not received properly');
+          console.error('This usually indicates:');
+          console.error('1. Invalid Client ID or Tenant ID');
+          console.error('2. Application not properly configured in Azure AD');
+          console.error('3. Network connectivity issues\n');
+          console.error('Debug info:', JSON.stringify(info, null, 2));
+          return;
+        }
+        
         // Display the device code to the user
         console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('🔐 DEVICE CODE AUTHENTICATION REQUIRED');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('\nTo authenticate, follow these steps:\n');
-        console.log(`1. Open your browser and go to: ${info.verificationUri}`);
+        console.log(`1. Open your browser and go to: ${info.verificationUri || 'https://microsoft.com/devicelogin'}`);
         console.log(`2. Enter this code: ${info.userCode}`);
         console.log(`3. Sign in with your Microsoft 365 account`);
         console.log(`4. Grant permissions to the SMTP Relay application\n`);
@@ -84,6 +106,36 @@ class OAuth2FlowManager {
       }
     } catch (error) {
       this.logger.error(`Device Code Flow failed: ${error.message}`);
+      
+      // Provide more detailed error information
+      if (error.message && error.message.includes('invalid_grant')) {
+        console.error('\n❌ Authentication Error: Invalid Grant');
+        console.error('This typically means:');
+        console.error('1. The Tenant ID format is incorrect (should be a GUID or "common")');
+        console.error('2. The Client ID is not valid for this tenant');
+        console.error('3. The application is not properly registered in Azure AD');
+        console.error('\nPlease verify:');
+        console.error(`- Tenant ID: ${tenantId} (should be like "12345678-1234-1234-1234-123456789012" or "common")`);
+        console.error(`- Client ID: ${clientId} (should be the Application ID from Azure AD)`);
+        console.error('- The app has "SMTP.Send" API permission in Azure AD');
+        console.error('- Public client flow is enabled in Azure AD app settings\n');
+      } else if (error.message && error.message.includes('AADSTS')) {
+        // Parse Azure AD error codes
+        const errorCode = error.message.match(/AADSTS(\d+)/)?.[1];
+        console.error(`\n❌ Azure AD Error Code: AADSTS${errorCode}`);
+        console.error('Check Microsoft documentation for this error code');
+      } else if (error.message && error.message.includes('post_request_failed')) {
+        console.error('\n❌ Network Error: Cannot reach Azure AD');
+        console.error('This could mean:');
+        console.error('1. Network connectivity issues');
+        console.error('2. Firewall blocking Azure AD endpoints');
+        console.error('3. Invalid Tenant ID format');
+        console.error('\nPlease check:');
+        console.error('- Internet connectivity');
+        console.error('- Firewall allows HTTPS to login.microsoftonline.com');
+        console.error(`- Tenant ID format: "${tenantId}"`);
+      }
+      
       throw error;
     }
   }
@@ -435,14 +487,24 @@ class OAuth2FlowManager {
    */
   async saveTokens(tokenData) {
     try {
+      // Ensure directory exists
+      const dir = path.dirname(this.tokenFilePath);
+      await fs.mkdir(dir, { recursive: true });
+      
+      // Save with restricted permissions (owner read/write only)
       await fs.writeFile(
         this.tokenFilePath,
         JSON.stringify(tokenData, null, 2),
-        'utf8'
+        { 
+          encoding: 'utf8',
+          mode: 0o600  // Only owner can read/write
+        }
       );
-      this.logger.info('Tokens saved successfully');
+      this.logger.info('Tokens saved successfully with restricted permissions');
     } catch (error) {
       this.logger.error(`Failed to save tokens: ${error.message}`);
+      this.logger.error('Ensure the service has write permissions to the token file');
+      throw error;  // Re-throw to prevent silent failure
     }
   }
 

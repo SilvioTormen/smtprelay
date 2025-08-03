@@ -155,10 +155,52 @@ class SetupWizard {
     console.log('📱 Device Code Flow Setup:');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     
-    console.log('Prerequisites:');
-    console.log('1. Azure AD App with "SMTP.Send" API permission');
-    console.log('2. Public client flow enabled in Azure AD');
-    console.log('3. Admin consent (if required by tenant)\n');
+    // Ask which API to use
+    console.log('🎯 Which API method do you want to use?\n');
+    console.log('1. Microsoft Graph API (✅ RECOMMENDED - Modern & Future-proof)');
+    console.log('   Required Permission: Mail.Send (Microsoft Graph)');
+    console.log('   SMTP Auth on mailbox: NOT required\n');
+    
+    console.log('2. SMTP Protocol with OAuth2 (⚠️ Legacy - Being phased out)');
+    console.log('   Required Permission: SMTP.Send (Office 365 Exchange)');
+    console.log('   SMTP Auth on mailbox: MUST be enabled\n');
+    
+    console.log('3. Both APIs - Hybrid Mode (🔄 Automatic fallback)');
+    console.log('   Required: BOTH permissions');
+    console.log('   Provides maximum compatibility\n');
+    
+    const apiChoice = await question('Select API method (1-3) [1]: ') || '1';
+    
+    let apiMethod = 'graph_api';
+    let requiredPermissions = [];
+    
+    switch(apiChoice) {
+      case '1':
+        apiMethod = 'graph_api';
+        requiredPermissions = ['Mail.Send (Microsoft Graph)'];
+        console.log('\n✅ Selected: Microsoft Graph API (Recommended)\n');
+        break;
+      case '2':
+        apiMethod = 'smtp_oauth2';
+        requiredPermissions = ['SMTP.Send (Office 365 Exchange Online)'];
+        console.log('\n⚠️  Selected: SMTP OAuth2 (Legacy)\n');
+        break;
+      case '3':
+        apiMethod = 'hybrid';
+        requiredPermissions = ['Mail.Send (Microsoft Graph)', 'SMTP.Send (Office 365 Exchange)'];
+        console.log('\n🔄 Selected: Hybrid Mode (Both APIs)\n');
+        break;
+    }
+    
+    this.config.exchange_online.method = apiMethod;
+    
+    console.log('📋 Required Azure AD Configuration:');
+    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('1. Required Permissions:');
+    requiredPermissions.forEach(perm => console.log(`   - ${perm}`));
+    console.log('\n2. App Settings:');
+    console.log('   - Public client flow: Enabled');
+    console.log('   - Admin consent: Required\n');
 
     const proceed = await question('Ready to authenticate? (y/n): ');
     if (proceed.toLowerCase() !== 'y') {
@@ -193,8 +235,31 @@ class SetupWizard {
     console.log('🔑 Client Credentials Flow Setup:');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
 
+    // Ask which API to use
+    console.log('🎯 Which API method do you want to use?\n');
+    console.log('1. Microsoft Graph API (✅ RECOMMENDED)');
+    console.log('   Required: Mail.Send (Application permission)\n');
+    
+    console.log('2. SMTP Protocol with OAuth2 (⚠️ Legacy)');
+    console.log('   Required: SMTP.Send + Mailbox with SMTP Auth enabled\n');
+    
+    const apiChoice = await question('Select API method (1-2) [1]: ') || '1';
+    
+    if (apiChoice === '1') {
+      this.config.exchange_online.method = 'graph_api';
+      console.log('\n✅ Using Microsoft Graph API\n');
+    } else {
+      this.config.exchange_online.method = 'smtp_oauth2';
+      console.log('\n⚠️  Using SMTP OAuth2 (Legacy)\n');
+    }
+    
     console.log('Prerequisites:');
-    console.log('1. Azure AD App with "Mail.Send" application permission');
+    if (apiChoice === '1') {
+      console.log('1. Azure AD App with "Mail.Send" application permission (Microsoft Graph)');
+    } else {
+      console.log('1. Azure AD App with "SMTP.Send" permission (Office 365 Exchange)');
+      console.log('   AND a mailbox with SMTP Auth enabled');
+    }
     console.log('2. Client secret created in Azure AD');
     console.log('3. Admin consent granted\n');
 
