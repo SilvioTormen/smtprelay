@@ -40,18 +40,24 @@ class APIServer {
       this.app.set('trust proxy', process.env.TRUSTED_PROXIES?.split(',') || ['127.0.0.1']);
     }
     
-    // Redis for sessions and caching
-    this.redisClient = createClient({
-      host: this.config.redis?.host || 'localhost',
-      port: this.config.redis?.port || 6379,
-      password: this.config.redis?.password
-    });
+    // Redis for sessions and caching (optional)
+    try {
+      this.redisClient = createClient({
+        host: this.config.redis?.host || 'localhost',
+        port: this.config.redis?.port || 6379,
+        password: this.config.redis?.password
+      });
 
-    this.redisClient.on('error', err => {
-      this.logger.error('Redis Client Error:', err);
-    });
+      this.redisClient.on('error', err => {
+        this.logger.warn('Redis not available - sessions will use memory store:', err.message);
+        this.redisClient = null;
+      });
 
-    await this.redisClient.connect();
+      await this.redisClient.connect();
+    } catch (err) {
+      this.logger.warn('Redis connection failed - using memory store for sessions');
+      this.redisClient = null;
+    }
 
     // Security Headers with Helmet - ENHANCED
     this.app.use(helmet({
@@ -140,9 +146,8 @@ class APIServer {
     this.app.use('/api/auth/login', authLimiter);
 
     // Session Management with security enhancements
-    this.app.use(session({
-      store: new RedisStore({ client: this.redisClient }),
-      secret: process.env.SESSION_SECRET,
+    const sessionConfig = {
+      secret: process.env.SESSION_SECRET || 'default-secret-change-this',
       resave: false,
       saveUninitialized: false,
       rolling: true, // Reset expiry on activity
