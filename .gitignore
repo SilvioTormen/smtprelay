@@ -13,6 +13,12 @@ yarn.lock
 config.yml
 config.yaml
 
+# OAuth2 Tokens - NEVER commit!
+.tokens.json
+tokens.json
+*.tokens.json
+.tokens/
+
 # Logs
 logs/
 *.log

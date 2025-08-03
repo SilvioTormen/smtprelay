@@ -101,6 +101,9 @@ sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay
 sudo mkdir -p /var/log/smtp-relay
 sudo chown smtp-relay:smtp-relay /var/log/smtp-relay
 
+# Post-Installation Security (WICHTIG!)
+sudo /opt/smtp-relay/scripts/post-install.sh
+
 # Als Service installieren
 sudo cp /opt/smtp-relay/smtp-relay.service /etc/systemd/system/
 sudo systemctl daemon-reload
@@ -110,7 +113,21 @@ sudo systemctl start smtp-relay
 # Status prüfen
 sudo systemctl status smtp-relay
 sudo journalctl -u smtp-relay -f
+
+# WICHTIG: Token-Datei Sicherheit
+sudo chown smtp-relay:smtp-relay /opt/smtp-relay/.tokens.json
+sudo chmod 600 /opt/smtp-relay/.tokens.json
 ```
+
+#### ⚠️ Sicherheitshinweise für OAuth2 Tokens
+
+Nach der OAuth2-Authentifizierung wird ein Refresh Token in `.tokens.json` gespeichert:
+
+- **Automatische Sicherung:** Setup-Script setzt Berechtigungen auf `600`
+- **Manuelle Prüfung:** `ls -la /opt/smtp-relay/.tokens.json`
+- **Backup:** Diese Datei sollte gesichert werden (enthält Authentifizierung)
+- **Git:** Wird automatisch von `.gitignore` ausgeschlossen
+- **Verlust:** Bei Verlust muss OAuth2 Setup erneut durchgeführt werden
 
 #### Port-Berechtigungen
 
@@ -142,6 +159,21 @@ pm2 startup
 ```
 
 ## ⚙️ Konfiguration
+
+### 🎯 WICHTIG: Wähle deine Methode!
+
+| Methode | Empfehlung | Azure AD Permission | SMTP Auth nötig? |
+|---------|------------|-------------------|------------------|
+| **Graph API** | ✅ **EMPFOHLEN** | `Mail.Send` (Microsoft Graph) | ❌ Nein |
+| **SMTP OAuth2** | ⚠️ Legacy | `SMTP.Send` (Office 365 Exchange) | ✅ Ja |
+| **Hybrid** | 🔄 Fallback | Beide Permissions | ✅ Ja |
+
+**Schnellentscheidung:**
+- **Neue Installation?** → Nutze Graph API! 
+- **SMTP Auth deaktiviert?** → Nutze Graph API!
+- **Legacy-Kompatibilität?** → Nutze Hybrid!
+
+📚 **Detaillierte Anleitung:** [Authentication Methods Guide](docs/AUTH_METHODS_GUIDE.md)
 
 ### Exchange Online OAuth2 Setup
 

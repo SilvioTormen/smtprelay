@@ -78,13 +78,26 @@ ip_whitelist:
 
 # Exchange Online Relay
 exchange_online:
-  host: "smtp.office365.com"
-  port: 587
+  # ========================================================================
+  # WICHTIG: Wähle deine API-Methode!
+  # ========================================================================
+  # method: "graph_api"     # ✅ EMPFOHLEN - Moderne Graph API (kein SMTP Auth nötig!)
+  # method: "smtp_oauth2"   # ⚠️ Legacy - SMTP Protokoll (SMTP Auth muss aktiviert sein!)
+  # method: "hybrid"        # 🔄 Beide - Automatischer Fallback
   
-  # OAuth2 Authentication Methods (Choose one):
+  method: "graph_api"  # EMPFOHLEN!
   
-  # Option 1: Device Code Flow (Recommended for server setup)
-  # Perfect for headless servers - authenticate using code on another device
+  # Für Graph API (EMPFOHLEN):
+  # - Azure AD Permission: "Mail.Send" von Microsoft Graph
+  # - SMTP Auth am Postfach: NICHT nötig!
+  
+  # Für SMTP OAuth2 (Legacy):
+  # - Azure AD Permission: "SMTP.Send" von Office 365 Exchange Online
+  # - SMTP Auth am Postfach: MUSS aktiviert sein!
+  host: "smtp.office365.com"  # Nur für smtp_oauth2 Methode
+  port: 587                    # Nur für smtp_oauth2 Methode
+  
+  # OAuth2 Authentication (für beide Methoden):
   auth:
     method: "device_code"  # Options: device_code, client_credentials, authorization_code
     tenant_id: "your-tenant-id"  # Or "common" for multi-tenant

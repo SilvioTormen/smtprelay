@@ -96,6 +96,24 @@ class SetupScript {
         this.success.push(`✅ Created directory: ${dir}/`);
       }
     });
+    
+    // Ensure token file has correct permissions if it exists
+    this.secureTokenFile();
+  }
+  
+  secureTokenFile() {
+    const tokenPath = path.join(__dirname, '..', '.tokens.json');
+    
+    if (fs.existsSync(tokenPath)) {
+      try {
+        // Set restrictive permissions (owner read/write only)
+        fs.chmodSync(tokenPath, 0o600);
+        this.success.push('✅ Token file permissions secured (600)');
+      } catch (error) {
+        this.warnings.push('⚠️  Could not set token file permissions - run as root or set manually');
+        console.log('   Manual fix: sudo chmod 600 .tokens.json');
+      }
+    }
   }
 
   async setupEnvironment() {
