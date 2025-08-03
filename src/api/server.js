@@ -168,7 +168,8 @@ class APIServer {
       message: 'Too many login attempts'
     });
 
-    this.app.use('/api/', limiter);
+    // Apply rate limiting to ALL routes, not just /api/
+    this.app.use(limiter);
     this.app.use('/api/auth/login', authLimiter);
 
     // Session Management with security enhancements

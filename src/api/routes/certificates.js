@@ -354,38 +354,48 @@ router.post('/upload',
       const keyFile = files.privateKey[0];
       const chainFile = files.chain ? files.chain[0] : null;
       
+      // Validate uploaded file paths are in temp directory
+      const tempDir = path.resolve(__dirname, '../../../.temp/');
+      if (!certFile.path.startsWith(tempDir) || 
+          !keyFile.path.startsWith(tempDir) ||
+          (chainFile && !chainFile.path.startsWith(tempDir))) {
+        throw new Error('Invalid upload path');
+      }
+      
       tempFiles = [certFile.path, keyFile.path];
       if (chainFile) tempFiles.push(chainFile.path);
 
-      // Read and validate certificate content
-      const certContent = await fs.readFile(certFile.path, 'utf8');
+      // Read and validate certificate content with safe paths
+      const safeCertPath = path.resolve(tempDir, path.basename(certFile.path));
+      const certContent = await fs.readFile(safeCertPath, 'utf8');
       validatePEMContent(certContent, 'CERTIFICATE');
       
-      // Read and validate key content
-      const keyContent = await fs.readFile(keyFile.path, 'utf8');
+      // Read and validate key content with safe path
+      const safeKeyPath = path.resolve(tempDir, path.basename(keyFile.path));
+      const keyContent = await fs.readFile(safeKeyPath, 'utf8');
       validatePEMContent(keyContent, 'PRIVATE KEY');
       
-      // Validate certificate security
-      await validateCertificateSecurity(certFile.path);
+      // Validate certificate security with safe path
+      await validateCertificateSecurity(safeCertPath);
       
-      // Validate certificate using OpenSSL
-      await execCommand('openssl', ['x509', '-in', certFile.path, '-noout']);
+      // Validate certificate using OpenSSL with safe path
+      await execCommand('openssl', ['x509', '-in', safeCertPath, '-noout']);
       
-      // Validate private key
+      // Validate private key with safe path
       try {
-        await execCommand('openssl', ['rsa', '-in', keyFile.path, '-check', '-noout']);
+        await execCommand('openssl', ['rsa', '-in', safeKeyPath, '-check', '-noout']);
       } catch (rsaError) {
         try {
-          await execCommand('openssl', ['ec', '-in', keyFile.path, '-check', '-noout']);
+          await execCommand('openssl', ['ec', '-in', safeKeyPath, '-check', '-noout']);
         } catch (ecError) {
           throw new Error('Invalid private key');
         }
       }
 
-      // Verify certificate and key match using public key comparison
-      const certPubKey = await execCommand('openssl', ['x509', '-in', certFile.path, '-noout', '-pubkey']);
-      const keyPubKey = await execCommand('openssl', ['rsa', '-in', keyFile.path, '-pubout'])
-        .catch(() => execCommand('openssl', ['ec', '-in', keyFile.path, '-pubout']));
+      // Verify certificate and key match using public key comparison with safe paths
+      const certPubKey = await execCommand('openssl', ['x509', '-in', safeCertPath, '-noout', '-pubkey']);
+      const keyPubKey = await execCommand('openssl', ['rsa', '-in', safeKeyPath, '-pubout'])
+        .catch(() => execCommand('openssl', ['ec', '-in', safeKeyPath, '-pubout']));
       
       // Use constant-time comparison
       if (!crypto.timingSafeEqual(Buffer.from(certPubKey), Buffer.from(keyPubKey))) {
@@ -437,7 +447,8 @@ router.post('/upload',
       ]);
       
       if (chainFile) {
-        const chainContent = await fs.readFile(chainFile.path, 'utf8');
+        const safeChainPath = path.resolve(tempDir, path.basename(chainFile.path));
+        const chainContent = await fs.readFile(safeChainPath, 'utf8');
         validatePEMContent(chainContent, 'CERTIFICATE');
         const newChainPath = await sanitizePath('chain.pem');
         const tempChainPath = `${newChainPath}.tmp`;
