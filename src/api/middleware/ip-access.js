@@ -1,81 +1,65 @@
-const { ipWhitelistManager } = require('../routes/ip-whitelist');
+const ipRangeCheck = require('ip-range-check');
 
-/**
- * Middleware to enforce IP-based access control for the frontend
- */
+// Default allowed IPs (localhost and private networks)
+const defaultAllowedIPs = [
+  '127.0.0.1',
+  '::1',
+  '192.168.0.0/16',
+  '10.0.0.0/8',
+  '172.16.0.0/12'
+];
+
 const enforceFrontendAccess = (req, res, next) => {
-  // Skip for health checks ONLY (auth endpoints need IP check too)
+  // Skip IP check for health endpoint
   if (req.path === '/api/health') {
     return next();
   }
 
-  // Get client IP - SECURITY: Only use trusted sources, never client headers
-  // In production, configure Express trust proxy settings properly
-  const clientIP = req.ip || 
-                   req.connection?.remoteAddress || 
-                   req.socket?.remoteAddress ||
-                   'unknown';
+  // Get client IP
+  const clientIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+  
+  // Extract IPv4 from IPv6 format if needed
+  const cleanIP = clientIP.includes('::ffff:') ? 
+    clientIP.replace('::ffff:', '') : 
+    clientIP;
 
-  // Reject if we can't determine IP
-  if (clientIP === 'unknown') {
-    return res.status(403).json({ 
-      error: 'Unable to determine client IP',
-      code: 'IP_DETECTION_FAILED'
-    });
-  }
+  // Check if IP is allowed
+  const allowedIPs = process.env.FRONTEND_ALLOWED_IPS ? 
+    process.env.FRONTEND_ALLOWED_IPS.split(',') : 
+    defaultAllowedIPs;
 
-  // Normalize IPv6 mapped IPv4
-  const normalizedIP = clientIP.replace(/^::ffff:/, '');
+  const isAllowed = ipRangeCheck(cleanIP, allowedIPs);
 
-  // Check if frontend access is allowed
-  if (!ipWhitelistManager.isFrontendAllowed(normalizedIP)) {
-    // Log denied attempt
-    if (ipWhitelistManager.config.settings.log_denied_attempts) {
-      console.log(`[IP-ACCESS] Denied frontend access from ${normalizedIP} to ${req.path}`);
-      ipWhitelistManager.auditLog('DENIED_ACCESS', 'frontend', 'access', normalizedIP, 'system');
-    }
-
-    return res.status(403).json({ 
+  if (!isAllowed) {
+    console.log(`Access denied for IP: ${cleanIP}`);
+    return res.status(403).json({
       error: 'Access denied',
       message: 'Your IP address is not authorized to access this resource'
     });
   }
 
-  // Add IP to request for logging
-  req.clientIP = normalizedIP;
   next();
 };
 
-/**
- * Middleware to check SMTP relay permissions
- * This is used by the auth handler to determine if auth is required
- */
-const checkSMTPAccess = (clientIP) => {
-  const normalizedIP = clientIP.replace(/^::ffff:/, '');
-  return ipWhitelistManager.isSMTPAllowed(normalizedIP);
-};
+const checkIPWhitelist = (allowedIPs) => {
+  return (req, res, next) => {
+    const clientIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
+    const cleanIP = clientIP.includes('::ffff:') ? 
+      clientIP.replace('::ffff:', '') : 
+      clientIP;
 
-/**
- * Get IP from request - SECURE VERSION
- * Only uses server-side sources, not client headers
- */
-const getClientIP = (req) => {
-  // SECURITY: Only use server-determined IP, not client headers
-  // Headers like X-Forwarded-For can be spoofed
-  const serverIP = req.ip || 
-                   req.connection?.remoteAddress || 
-                   req.socket?.remoteAddress;
-
-  if (!serverIP || serverIP === 'unknown') {
-    return 'unknown';
-  }
-
-  // Normalize IPv6 mapped IPv4
-  return serverIP.replace(/^::ffff:/, '').trim();
+    if (ipRangeCheck(cleanIP, allowedIPs)) {
+      next();
+    } else {
+      res.status(403).json({
+        error: 'Access denied',
+        ip: cleanIP
+      });
+    }
+  };
 };
 
 module.exports = {
   enforceFrontendAccess,
-  checkSMTPAccess,
-  getClientIP
+  checkIPWhitelist
 };
