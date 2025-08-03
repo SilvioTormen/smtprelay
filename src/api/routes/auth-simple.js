@@ -88,9 +88,11 @@ router.post('/login', async (req, res) => {
       { expiresIn: '24h' }
     );
     
-    // Set cookie
+    // Set cookie - SECURE WAY
     res.cookie('token', token, {
       httpOnly: true,
+      secure: process.env.NODE_ENV === 'production', // HTTPS only in production
+      sameSite: 'strict', // CSRF protection
       maxAge: 24 * 60 * 60 * 1000 // 24 hours
     });
     
@@ -105,7 +107,7 @@ router.post('/login', async (req, res) => {
       console.log('Session set for user:', username);
     }
     
-    // Return success
+    // Return success - DO NOT SEND TOKEN IN RESPONSE (security best practice)
     res.json({
       success: true,
       user: {
@@ -113,8 +115,8 @@ router.post('/login', async (req, res) => {
         username: user.username,
         email: user.email,
         role: user.role
-      },
-      token // Also return token for frontend if needed
+      }
+      // Token is in httpOnly cookie, not in response body
     });
     
   } catch (error) {
