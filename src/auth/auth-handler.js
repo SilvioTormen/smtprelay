@@ -42,13 +42,11 @@ class AuthHandler {
     return /^\$2[aby]\$/.test(password);
   }
   
-  // Simple sync hash for migration (use bcrypt in production)
+  // Use bcrypt for secure password hashing
   hashPasswordSync(password) {
-    // For migration purposes - should use bcrypt in production
-    return '$2b$' + crypto
-      .createHash('sha256')
-      .update(password + (this.config.auth?.salt || 'smtp-relay'))
-      .digest('base64');
+    const bcrypt = require('bcrypt');
+    const saltRounds = 12; // High computational cost
+    return bcrypt.hashSync(password, saltRounds);
   }
   
   // Constant-time string comparison to prevent timing attacks

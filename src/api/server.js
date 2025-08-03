@@ -10,6 +10,7 @@ const { Server } = require('socket.io');
 const http = require('http');
 const jwt = require('jsonwebtoken');
 const path = require('path');
+const crypto = require('crypto');
 
 // Security middleware
 const authRoutes = require('./routes/auth');
@@ -46,9 +47,24 @@ class APIServer {
     this.redisClient = null;
     this.logger.info('Using memory store for sessions (Redis disabled)');
 
-    // Security Headers with Helmet - OPTIMIZED
+    // Security Headers with Helmet - SECURE CONFIGURATION
     this.app.use(helmet({
-      contentSecurityPolicy: false, // Disable CSP header as requested
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Required for React
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https:"],
+          connectSrc: ["'self'", "ws:", "wss:"],
+          fontSrc: ["'self'", "data:"],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'none'"],
+          frameSrc: ["'none'"],
+          frameAncestors: ["'self'"],
+          formAction: ["'self'"],
+          upgradeInsecureRequests: process.env.NODE_ENV === 'production' ? [] : null,
+        }
+      },
       hsts: {
         maxAge: 31536000,
         includeSubDomains: true,
@@ -71,10 +87,9 @@ class APIServer {
       crossOriginResourcePolicy: { policy: "cross-origin" },
       originAgentCluster: true,
       referrerPolicy: { policy: "strict-origin-when-cross-origin" },
-      xssFilter: false, // Deprecated - CSP handles this better
-      noSniff: true, // Adds X-Content-Type-Options: nosniff
+      noSniff: true,
       ieNoOpen: true,
-      frameguard: false // Using CSP frame-ancestors instead
+      frameguard: { action: 'sameorigin' }
     }));
     
     // Force HTTPS in production
@@ -176,9 +191,66 @@ class APIServer {
       unset: 'destroy' // Destroy session on unset
     }));
 
+    // Rate Limiting - Global
+    const globalLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 100, // Limit each IP to 100 requests per windowMs
+      message: 'Too many requests from this IP, please try again later.',
+      standardHeaders: true, // Return rate limit info in headers
+      legacyHeaders: false,
+    });
+    
+    // Rate Limiting - Auth endpoints (stricter)
+    const authLimiter = rateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      max: 5, // Limit each IP to 5 login attempts per windowMs
+      message: 'Too many login attempts, please try again later.',
+      skipSuccessfulRequests: true, // Don't count successful logins
+    });
+    
+    // Apply global rate limiting to all routes
+    this.app.use('/api/', globalLimiter);
+
     // Body Parser
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+    
+    // CSRF Protection (for state-changing operations)
+    this.app.use((req, res, next) => {
+      // Generate CSRF token for session if not exists
+      if (!req.session.csrfToken) {
+        req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+      }
+      
+      // Skip CSRF for GET requests and auth endpoints
+      if (req.method === 'GET' || req.path.startsWith('/api/auth/')) {
+        return next();
+      }
+      
+      // Skip CSRF for WebSocket connections
+      if (req.path === '/socket.io/') {
+        return next();
+      }
+      
+      // Validate CSRF token for state-changing operations
+      const token = req.headers['x-csrf-token'] || req.body._csrf;
+      if (!token || token !== req.session.csrfToken) {
+        return res.status(403).json({ 
+          error: 'Invalid CSRF token',
+          code: 'CSRF_VALIDATION_FAILED'
+        });
+      }
+      
+      next();
+    });
+    
+    // Provide CSRF token endpoint
+    this.app.get('/api/csrf-token', (req, res) => {
+      if (!req.session.csrfToken) {
+        req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+      }
+      res.json({ csrfToken: req.session.csrfToken });
+    });
 
     // Request ID for tracking
     this.app.use((req, res, next) => {
@@ -231,6 +303,7 @@ class APIServer {
     }
 
     // API Routes with RBAC
+    this.app.use('/api/auth/login', authLimiter); // Apply stricter rate limiting to login
     this.app.use('/api/auth', authRoutes);
     this.app.use('/api/dashboard', authenticate, enforceRBAC, dashboardRoutes);
     this.app.use('/api/devices', authenticate, enforceRBAC, deviceRoutes);
