@@ -371,6 +371,7 @@ legacy_auth:
   - Multi-Factor Authentication (TOTP + FIDO2/YubiKey)
 
 ### System Monitoring
+- **Status Overview**: `npm run status` (shows all endpoints & availability)
 - Health Check: `http://server:3001/api/health`
 - Logs: `/var/log/smtp-relay/`
 - PM2 Status: `pm2 status`
@@ -388,10 +389,25 @@ legacy_auth:
 
 ## 🛠️ Troubleshooting
 
+### Service Status prüfen
+
+```bash
+# Vollständige Status-Übersicht mit allen Endpoints
+npm run status
+
+# Zeigt:
+# - Service Status (läuft/gestoppt)
+# - Alle SMTP Endpoints (Port 25, 587, 465)
+# - Dashboard URL
+# - Firewall Status
+# - OAuth2 Token Status
+# - Automatische Connectivity Tests
+```
+
 ### Gerät kann nicht senden
 
 1. IP in Whitelist? Check: `config.yml`
-2. Firewall offen? Check: `sudo firewall-cmd --list-all`
+2. Firewall offen? Check: `npm run status` oder `sudo firewall-cmd --list-all`
 3. Logs prüfen: `tail -f /var/log/smtp-relay/relay.log`
 
 ### Exchange Authentifizierung fehlgeschlagen
