@@ -9,6 +9,7 @@ const { createClient } = require('redis');
 const { Server } = require('socket.io');
 const http = require('http');
 const jwt = require('jsonwebtoken');
+const path = require('path');
 
 // Security middleware
 const authRoutes = require('./routes/auth');
@@ -181,6 +182,26 @@ class APIServer {
 
     // IP Access Control Middleware (after logging, before routes)
     this.app.use(enforceFrontendAccess);
+
+    // Serve static files from dashboard build (if exists)
+    const dashboardBuildPath = path.join(__dirname, '../../dashboard/build');
+    const dashboardDistPath = path.join(__dirname, '../../dashboard/dist');
+    const dashboardPublicPath = path.join(__dirname, '../../dashboard/public');
+    
+    // Try different possible dashboard locations
+    if (require('fs').existsSync(dashboardBuildPath)) {
+      this.app.use(express.static(dashboardBuildPath));
+      this.logger.info(`Serving dashboard from: ${dashboardBuildPath}`);
+    } else if (require('fs').existsSync(dashboardDistPath)) {
+      this.app.use(express.static(dashboardDistPath));
+      this.logger.info(`Serving dashboard from: ${dashboardDistPath}`);
+    } else if (require('fs').existsSync(dashboardPublicPath)) {
+      // For development - serve the raw files
+      this.app.use(express.static(dashboardPublicPath));
+      this.logger.info(`Serving dashboard from: ${dashboardPublicPath}`);
+    } else {
+      this.logger.warn('Dashboard build not found. Run "npm run build --prefix dashboard" to build it.');
+    }
 
     // API Routes
     this.app.use('/api/auth', authRoutes);
