@@ -80,7 +80,16 @@ const Dashboard = () => {
       socket.emit('request:stats');
       
       socket.on('stats:update', (data) => {
-        setStats(data);
+        // Merge with existing state to prevent undefined values
+        setStats(prevStats => ({
+          ...prevStats,
+          totalEmails: data.totalEmails ?? prevStats.totalEmails,
+          emailsToday: data.emailsToday ?? prevStats.emailsToday,
+          activeDevices: data.activeDevices ?? prevStats.activeDevices,
+          queueSize: data.queueSize ?? prevStats.queueSize,
+          successRate: data.successRate ?? prevStats.successRate,
+          avgProcessingTime: data.avgProcessingTime ?? prevStats.avgProcessingTime,
+        }));
       });
 
       socket.on('activity:update', (data) => {

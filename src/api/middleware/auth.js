@@ -24,8 +24,8 @@ const authenticate = async (req, res, next) => {
     let token;
     
     // First, check for token in cookie (preferred)
-    if (req.cookies && req.cookies.accessToken) {
-      token = req.cookies.accessToken;
+    if (req.cookies && (req.cookies.accessToken || req.cookies.token)) {
+      token = req.cookies.accessToken || req.cookies.token;
     } 
     // Fallback to Authorization header for backward compatibility (will be removed)
     else {
@@ -50,9 +50,9 @@ const authenticate = async (req, res, next) => {
       });
     }
 
-    // Add user info to request
+    // Add user info to request (support both formats)
     req.user = {
-      id: decoded.userId,
+      id: decoded.userId || decoded.id,
       username: decoded.username,
       role: decoded.role,
       permissions: decoded.permissions || []

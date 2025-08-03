@@ -65,7 +65,7 @@ import {
   VpnKey as KeyIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext-Debug';
 
 const IPWhitelist = () => {
   const { enqueueSnackbar } = useSnackbar();

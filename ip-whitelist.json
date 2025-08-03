@@ -1,0 +1,21 @@
+{
+  "smtp_relay": {
+    "no_auth_required": [],
+    "auth_required": [],
+    "description": "IPs that can relay emails through SMTP"
+  },
+  "frontend_access": {
+    "allowed": [],
+    "description": "IPs that can access the web dashboard"
+  },
+  "blacklist": {
+    "blocked": [],
+    "description": "IPs that are completely blocked"
+  },
+  "settings": {
+    "enforce_frontend_whitelist": false,
+    "log_denied_attempts": true,
+    "auto_block_after_failures": 10,
+    "whitelist_timeout_minutes": 0
+  }
+}

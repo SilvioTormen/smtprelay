@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext-Debug';
 import {
   Box,
   Drawer,
@@ -33,6 +34,7 @@ import {
   Brightness4 as DarkModeIcon,
   Brightness7 as LightModeIcon,
   Circle as CircleIcon,
+  People as PeopleIcon,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 
@@ -41,6 +43,7 @@ const drawerWidthCollapsed = 65;
 
 const Layout = ({ darkMode, toggleDarkMode }) => {
   const [open, setOpen] = useState(true);
+  const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -53,6 +56,7 @@ const Layout = ({ darkMode, toggleDarkMode }) => {
     { path: '/logs', name: 'Logs', icon: <LogsIcon /> },
     { path: '/ip-whitelist', name: 'IP Whitelist', icon: <SecurityIcon /> },
     { path: '/sessions', name: 'Sessions', icon: <SessionsIcon /> },
+    ...(user?.role === 'admin' ? [{ path: '/users', name: 'User Management', icon: <PeopleIcon /> }] : []),
     { path: '/settings', name: 'Settings', icon: <SettingsIcon /> },
   ];
 

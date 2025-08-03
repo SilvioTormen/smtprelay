@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const tokenService = require('../services/tokenService');
 const securityService = require('../services/securityService');
-const { authenticate, authorize } = require('../middleware/auth-simple');
+const { authenticate, authorize } = require('../middleware/auth');
 
 /**
  * Get all active sessions for current user
- * NOTE: Simplified version for auth-simple mode
+ * Get all active sessions for the authenticated user
  */
 router.get('/my-sessions', authenticate, async (req, res) => {
   try {

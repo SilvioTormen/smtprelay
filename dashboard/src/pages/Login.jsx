@@ -100,6 +100,7 @@ const Login = () => {
           sx={{
             width: { xs: '100%', sm: 400 },
             p: 4,
+            WebkitBackdropFilter: 'blur(10px)',
             backdropFilter: 'blur(10px)',
             backgroundColor: 'background.paper',
             boxShadow: 3,
@@ -127,9 +128,10 @@ const Login = () => {
             </Typography>
           </Box>
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} noValidate>
             <TextField
               fullWidth
+              id="username"
               name="username"
               label="Username"
               value={formData.username}
@@ -137,6 +139,8 @@ const Login = () => {
               margin="normal"
               required
               autoFocus
+              autoComplete="username"
+              aria-label="Username"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -165,6 +169,7 @@ const Login = () => {
 
             <TextField
               fullWidth
+              id="password"
               name="password"
               label="Password"
               type={showPassword ? 'text' : 'password'}
@@ -172,6 +177,8 @@ const Login = () => {
               onChange={handleChange}
               margin="normal"
               required
+              autoComplete="current-password"
+              aria-label="Password"
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -184,6 +191,8 @@ const Login = () => {
                       onClick={() => setShowPassword(!showPassword)}
                       edge="end"
                       size="small"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      title={showPassword ? 'Hide password' : 'Show password'}
                     >
                       {showPassword ? <VisibilityOff /> : <Visibility />}
                     </IconButton>
