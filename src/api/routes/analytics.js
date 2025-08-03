@@ -1,8 +1,17 @@
 const express = require('express');
 const router = express.Router();
-const { authenticate, authorize } = require('../middleware/auth');
-const geoip = require('geoip-lite');
-const { subHours, subDays, format } = require('date-fns');
+// Use simplified auth for now
+const { authenticate, authorize } = require('../middleware/auth-simple');
+// Comment out dependencies we don't have yet
+// const geoip = require('geoip-lite');
+// const { subHours, subDays, format } = require('date-fns');
+
+// Helper functions to replace date-fns
+const subHours = (date, hours) => {
+  const result = new Date(date);
+  result.setHours(result.getHours() - hours);
+  return result;
+};
 
 // Mock data generator for demo (replace with real data from database)
 const generateMockData = {
