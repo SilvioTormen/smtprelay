@@ -107,12 +107,12 @@ class UserService {
       
       this.users.set(userTemplate.username, user);
       
-      // Log credentials for development
+      // Log user creation (without sensitive data)
       if (isDevelopment) {
         const roleLabel = userTemplate.role === 'admin' ? 'Admin' :
                          userTemplate.role === 'viewer' ? 'Helpdesk (viewer)' :
                          'Engineering (operator)';
-        console.log(`   ${roleLabel}: ${userTemplate.username} / ${password}`);
+        console.log(`   ${roleLabel}: ${userTemplate.username} (password hidden)`);
       }
     }
     
