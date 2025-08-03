@@ -142,13 +142,78 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // API Request helper with authentication
+  const apiRequest = async (url, options = {}) => {
+    console.log('[AuthContext] API Request to:', url);
+    
+    const requestOptions = {
+      ...options,
+      credentials: 'include', // Always include cookies
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+      }
+    };
+
+    try {
+      const response = await fetch(`${API_URL}${url}`, requestOptions);
+      
+      if (response.status === 401) {
+        console.log('[AuthContext] 401 Unauthorized, redirecting to login');
+        sessionStorage.clear();
+        setUser(null);
+        navigate('/login');
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('[AuthContext] API Request error:', error);
+      throw error;
+    }
+  };
+
+  // Check session function (for external use)
+  const checkSession = async () => {
+    console.log('[AuthContext] Manual session check requested');
+    const userInfo = sessionStorage.getItem('userInfo');
+    if (!userInfo) {
+      console.log('[AuthContext] No stored session found');
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${API_URL}/api/auth/me`, {
+        method: 'GET',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('[AuthContext] Session valid, user:', data.user);
+        setUser(data.user);
+        return true;
+      } else {
+        console.log('[AuthContext] Session invalid, clearing storage');
+        sessionStorage.clear();
+        setUser(null);
+        return false;
+      }
+    } catch (error) {
+      console.error('[AuthContext] Session check error:', error);
+      sessionStorage.clear();
+      setUser(null);
+      return false;
+    }
+  };
+
   const value = {
     user,
     loading,
     error,
     login,
     logout,
-    checkSession
+    checkSession,
+    apiRequest
   };
 
   return (
