@@ -26,6 +26,12 @@ logs/
 *.seed
 *.pid.lock
 
+# Data files - SENSITIVE! NEVER COMMIT!
+data/
+*.json.backup
+*.db
+*.sqlite
+
 # IDE
 .vscode/
 .idea/
