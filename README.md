@@ -33,25 +33,76 @@ Ein einfacher, robuster SMTP Relay Service für Legacy-Geräte (Drucker, Scanner
 
 ## 🚀 Schnellstart
 
-### 1. Installation mit Ansible
+### 1. Installation mit Ansible (Empfohlen für Production)
+
+#### Vorbereitung auf Control Node:
 
 ```bash
-# Repository klonen
+# Repository auf Ansible Control Node klonen
 git clone https://github.com/SilvioTormen/smtprelay.git
-cd smtprelay
+cd smtprelay/ansible
 
-# Config vorbereiten
-cp config.example.yml config.yml
-
-# OAuth2 Setup Wizard ausführen (empfohlen)
-npm run setup:auth
-
-# Oder manuell anpassen
-vim config.yml
-
-# Mit Ansible deployen
-ansible-playbook -i inventory/hosts.yml ansible/deploy.yml
+# Inventory erstellen
+cp -r inventory/example inventory/production
+vim inventory/production/hosts.yml
 ```
+
+#### Inventory konfigurieren (hosts.yml):
+
+```yaml
+all:
+  children:
+    smtp_relay_servers:
+      hosts:
+        relay1:
+          ansible_host: 192.168.1.10
+          ansible_user: root
+          # Azure AD Konfiguration
+          exchange_tenant_id: "12345678-1234-1234-1234-123456789012"
+          exchange_client_id: "abcdef12-3456-7890-abcd-ef1234567890"
+          exchange_api_method: "graph_api"  # Empfohlen!
+```
+
+#### Secrets mit Ansible Vault sichern:
+
+```bash
+# Vault für Secrets erstellen
+ansible-vault create inventory/production/group_vars/all/vault.yml
+
+# Inhalt:
+vault_exchange_client_secret: "your-secret-here"
+vault_admin_password: "SecurePassword2024!"
+```
+
+#### Deployment ausführen:
+
+```bash
+# Test-Verbindung
+ansible -i inventory/production/hosts.yml all -m ping
+
+# Deployment mit Vault Password
+ansible-playbook -i inventory/production/hosts.yml deploy.yml --ask-vault-pass
+
+# Oder mit Password-File
+echo "your-vault-password" > ~/.vault_pass
+chmod 600 ~/.vault_pass
+ansible-playbook -i inventory/production/hosts.yml deploy.yml --vault-password-file ~/.vault_pass
+```
+
+#### Nach dem Deployment:
+
+```bash
+# Bei Device Code Flow - einmalige Authentifizierung
+ssh root@relay1
+cd /opt/smtp-relay
+sudo -u smtp-relay npm run setup:auth
+
+# Service prüfen
+systemctl status smtp-relay
+systemctl status smtp-relay-dashboard
+```
+
+📚 **Detaillierte Ansible-Anleitung:** [ansible/README.md](ansible/README.md)
 
 ### 2. Manuelle Installation
 

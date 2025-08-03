@@ -1,0 +1,29 @@
+# Example Vault file - ENCRYPT THIS WITH ansible-vault!
+# 
+# Create actual vault file:
+# ansible-vault create inventory/production/group_vars/all/vault.yml
+#
+# Edit existing vault:
+# ansible-vault edit inventory/production/group_vars/all/vault.yml
+
+---
+# Azure AD Client Secret (REQUIRED for client_credentials flow)
+vault_exchange_client_secret: "your-client-secret-here"
+
+# Optional: Specific sender email
+vault_exchange_send_as: "relay@yourdomain.com"
+
+# Initial passwords for web interface
+vault_admin_password: "SuperSecureAdminPassword2024!"
+vault_helpdesk_password: "SecureHelpdeskPassword2024!"
+
+# Optional: Custom TLS certificates
+# vault_tls_cert: |
+#   -----BEGIN CERTIFICATE-----
+#   MIIDxTCCAq2gAwIBAgIQ...
+#   -----END CERTIFICATE-----
+
+# vault_tls_key: |
+#   -----BEGIN PRIVATE KEY-----
+#   MIIEvgIBADANBgkqhkiG9w0BAQ...
+#   -----END PRIVATE KEY-----

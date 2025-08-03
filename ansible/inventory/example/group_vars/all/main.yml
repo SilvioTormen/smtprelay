@@ -1,0 +1,35 @@
+# Main variables for SMTP Relay deployment
+# These can be overridden per host or in vault.yml
+
+---
+# Deployment settings
+node_env: "production"
+log_level: "info"
+
+# Azure AD settings (override in vault.yml for security)
+exchange_auth_method: "client_credentials"  # or "device_code"
+
+# Use vault for sensitive data
+exchange_client_secret: "{{ vault_exchange_client_secret | default('') }}"
+admin_password: "{{ vault_admin_password | default('Admin@2024!Secure') }}"
+helpdesk_password: "{{ vault_helpdesk_password | default('Helpdesk@2024!Secure') }}"
+
+# Network configuration
+smtp_no_auth_networks:
+  - "192.168.0.0/16"
+  - "10.0.0.0/8"
+  - "172.16.0.0/12"
+
+# Rate limiting
+rate_limiting_enabled: true
+max_messages_per_minute: 100
+max_recipients_per_message: 50
+
+# Queue settings
+queue_enabled: true
+queue_retry_attempts: 3
+queue_retry_delay: 300
+
+# Redis (optional)
+redis_host: "localhost"
+redis_port: 6379
