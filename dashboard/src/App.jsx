@@ -23,7 +23,7 @@ import { WebSocketProvider } from './contexts/WebSocketContext';
 
 // Components
 import ProtectedRoute from './components/ProtectedRoute';
-import Layout from './components/Layout';
+import Layout from './components/Layout-MUI';
 
 // Create React Query client
 const queryClient = new QueryClient({
