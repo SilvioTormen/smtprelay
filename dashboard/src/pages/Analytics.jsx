@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext-Debug';
-import EmailFlowSankey from '../components/EmailFlowSankey';
-import GeoHeatMap from '../components/GeoHeatMap';
+// Use simplified components for better design consistency
+import EmailFlowSankey from '../components/EmailFlowSankey-Simple';
+import GeoHeatMap from '../components/GeoHeatMap-Simple';
 import TimeSeriesAnalytics from '../components/TimeSeriesAnalytics';
 import DeviceHealthMonitor from '../components/DeviceHealthMonitor';
 import {
@@ -135,9 +136,9 @@ const Analytics = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <Box sx={{ p: 3 }}>
       {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
+      <Card sx={{ mb: 3 }}>
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>

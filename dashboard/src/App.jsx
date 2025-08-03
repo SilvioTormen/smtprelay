@@ -15,7 +15,7 @@ import Settings from './pages/Settings';
 import Logs from './pages/Logs';
 import IPWhitelist from './pages/IPWhitelist';
 import Sessions from './pages/Sessions';
-import Analytics from './pages/Analytics';
+import Analytics from './pages/Analytics-MUI';
 
 // Contexts
 import { AuthProvider } from './contexts/AuthContext-Debug'; // Use debug version
