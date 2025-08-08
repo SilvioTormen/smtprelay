@@ -36,6 +36,7 @@ import {
   Circle as CircleIcon,
   People as PeopleIcon,
   Person as PersonIcon,
+  Cloud as CloudIcon,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 
@@ -58,6 +59,7 @@ const Layout = ({ darkMode, toggleDarkMode }) => {
     { path: '/ip-whitelist', name: 'IP Whitelist', icon: <SecurityIcon /> },
     { path: '/sessions', name: 'Sessions', icon: <SessionsIcon /> },
     ...(user?.role === 'admin' ? [{ path: '/users', name: 'User Management', icon: <PeopleIcon /> }] : []),
+    { path: '/exchange-setup', name: 'Exchange Setup', icon: <CloudIcon /> },
     { path: '/settings', name: 'Settings', icon: <SettingsIcon /> },
   ];
 

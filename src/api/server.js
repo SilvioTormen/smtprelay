@@ -304,6 +304,10 @@ class APIServer {
     this.app.use('/api/logs', authenticate, enforceRBAC, require('./routes/logs'));
     this.app.use('/api/users', require('./routes/users'));
     this.app.use('/api/mfa', require('./routes/mfa'));
+    this.app.use('/api/exchange-config', require('./routes/exchange-config'));
+    this.app.use('/api/azure-setup', require('./routes/azure-setup'));
+    this.app.use('/api/azure-simple', require('./routes/azure-simple'));
+    this.app.use('/api/azure-graph', require('./routes/azure-graph-admin'));
 
     // Health Check (no auth required)
     this.app.get('/api/health', (req, res) => {

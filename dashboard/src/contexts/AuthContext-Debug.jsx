@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [csrfToken, setCsrfToken] = useState(null);
   const navigate = useNavigate();
 
   // API base URL
@@ -24,7 +25,24 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     console.log('[AuthContext] Checking session on mount...');
     checkSession();
+    fetchCSRFToken();
   }, []);
+
+  // Fetch CSRF token
+  const fetchCSRFToken = async () => {
+    try {
+      const response = await fetch(`${API_URL}/api/auth/csrf-token`, {
+        credentials: 'include'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setCsrfToken(data.csrfToken);
+        console.log('[AuthContext] CSRF token fetched');
+      }
+    } catch (error) {
+      console.error('[AuthContext] Failed to fetch CSRF token:', error);
+    }
+  };
 
   // Debug user state changes
   useEffect(() => {
@@ -111,6 +129,9 @@ export const AuthProvider = ({ children }) => {
       console.log('[AuthContext] Login successful, user set:', data.user);
       console.log('[AuthContext] Authentication uses httpOnly cookies (secure)');
       
+      // Fetch CSRF token after successful login
+      await fetchCSRFToken();
+      
       // Navigate to dashboard
       navigate('/dashboard');
       
@@ -147,6 +168,11 @@ export const AuthProvider = ({ children }) => {
   const apiRequest = async (url, options = {}) => {
     console.log('[AuthContext] API Request to:', url);
     
+    // For non-GET requests, ensure we have CSRF token
+    if (options.method && options.method !== 'GET' && !csrfToken) {
+      await fetchCSRFToken();
+    }
+    
     // SECURE: Use httpOnly cookies for authentication
     // No tokens in localStorage/sessionStorage (XSS vulnerable)
     const requestOptions = {
@@ -154,6 +180,8 @@ export const AuthProvider = ({ children }) => {
       credentials: 'include', // IMPORTANT: Include httpOnly cookies
       headers: {
         'Content-Type': 'application/json',
+        // Add CSRF token for non-GET requests
+        ...(options.method && options.method !== 'GET' && csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
         // No Authorization header needed - cookies handle auth securely
         ...options.headers
       }
