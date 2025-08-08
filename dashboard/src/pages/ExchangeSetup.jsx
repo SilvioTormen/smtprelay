@@ -47,6 +47,7 @@ import { useAuth } from '../contexts/AuthContext-Debug';
 import SimpleAzureSetup from '../components/SimpleAzureSetup';
 import ManualAzureSetup from '../components/ManualAzureSetup';
 import AzureAdminSetup from '../components/AzureAdminSetup';
+import ExchangeStatusDashboard from '../components/ExchangeStatusDashboard';
 import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
@@ -99,6 +100,8 @@ const ExchangeSetup = () => {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [showAccountDetails, setShowAccountDetails] = useState(false);
   const [setupMode, setSetupMode] = useState('choose'); // 'choose', 'automatic', 'manual'
+  const [showUserAuthDialog, setShowUserAuthDialog] = useState(false); // New state for user auth dialog
+  const [dashboardKey, setDashboardKey] = useState(0); // Key to force dashboard refresh
 
   const steps = ['Choose Method', 'Configure Azure AD', 'Authenticate', 'Test Connection'];
 
@@ -121,11 +124,24 @@ const ExchangeSetup = () => {
     try {
       const response = await apiRequest('/api/exchange-config/status');
       const data = await response.json();
+      console.log('Exchange status data:', data); // Debug log
       setStatus(data);
       setAccounts(data.accounts || []);
       
-      // Only show wizard if not configured
-      if (!data.isConfigured) {
+      // Show dashboard if configured OR if we have applications
+      // Check multiple conditions to determine if setup is complete
+      const hasConfig = data.isConfigured || data.hasConfig;
+      const hasApplications = data.applications?.length > 0;
+      const hasTokens = data.hasTokens;
+      const hasClientId = data.clientId || data.exchangeConfig?.auth?.client_id;
+      
+      console.log('Setup check:', { hasConfig, hasApplications, hasTokens, hasClientId }); // Debug log
+      
+      if (hasConfig || hasApplications || (hasClientId && hasTokens)) {
+        console.log('Showing dashboard view');
+        setShowSetupWizard(false);
+      } else {
+        console.log('Showing setup wizard');
         setShowSetupWizard(true);
       }
     } catch (err) {
@@ -153,20 +169,36 @@ const ExchangeSetup = () => {
     setSuccess(null);
   };
 
-  const startAuthentication = async () => {
+  const startAuthentication = async (skipWizardNext = false) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await apiRequest('/api/exchange-config/auth/init', {
+      // Get existing app config from status
+      const app = status?.applications?.[0];
+      if (!app) {
+        setError('No Azure AD application configured. Please complete setup first.');
+        setLoading(false);
+        return;
+      }
+      
+      const response = await apiRequest('/api/exchange-config/oauth/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: 'new' })
+        body: JSON.stringify({ 
+          authMethod: 'device_code',
+          tenantId: app.tenantId,
+          clientId: app.appId,
+          apiMethod: 'graph_api'
+        })
       });
       
       const data = await response.json();
       setDeviceCodeInfo(data);
       setPolling(true);
-      handleNext();
+      // Only go to next step if we're in the wizard
+      if (!skipWizardNext && showSetupWizard) {
+        handleNext();
+      }
     } catch (err) {
       setError('Failed to start authentication');
     } finally {
@@ -176,12 +208,13 @@ const ExchangeSetup = () => {
 
   const pollForToken = async () => {
     try {
-      const response = await apiRequest('/api/exchange-config/auth/poll', {
+      const response = await apiRequest('/api/exchange-config/oauth/poll', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          deviceCode: deviceCodeInfo.device_code,
-          interval: deviceCodeInfo.interval 
+          deviceCode: deviceCodeInfo.deviceCode,
+          tenantId: status?.applications?.[0]?.tenantId,
+          clientId: status?.applications?.[0]?.appId
         })
       });
       
@@ -190,7 +223,15 @@ const ExchangeSetup = () => {
         setPolling(false);
         setSuccess('Authentication successful!');
         await checkStatus();
-        handleNext();
+        // If we're adding a user mailbox, close the dialog
+        if (showUserAuthDialog) {
+          setShowUserAuthDialog(false);
+          setDeviceCodeInfo(null);
+          // Force dashboard refresh by changing key
+          setDashboardKey(prev => prev + 1);
+        } else if (showSetupWizard) {
+          handleNext();
+        }
       }
     } catch (err) {
       if (!err.message?.includes('authorization_pending')) {
@@ -315,10 +356,16 @@ const ExchangeSetup = () => {
   };
 
   const handleAutomaticSetupComplete = async (result) => {
-    if (result.success) {
+    if (result && result.success) {
       setSuccess('Azure AD application created successfully!');
+      // Refresh the status to show the new configuration
       await checkStatus();
+      // Hide the wizard and show the status overview
       setShowSetupWizard(false);
+      // Optionally show a success notification
+      if (result.application) {
+        setSuccess(`Application "${result.application.displayName}" created successfully! Application ID: ${result.application.appId}`);
+      }
     }
   };
 
@@ -332,8 +379,115 @@ const ExchangeSetup = () => {
     );
   }
 
-  // Main Status Overview - Show when configured
-  if (status?.isConfigured && !showSetupWizard) {
+  // Main Status Overview - Show when configured or when setup is complete
+  if ((status?.isConfigured || status?.applications?.length > 0) && !showSetupWizard) {
+    return (
+      <Container maxWidth="lg" sx={{ mt: 3 }}>
+        <ExchangeStatusDashboard 
+          key={dashboardKey}
+          onSetupStart={() => setShowSetupWizard(true)}
+          onEdit={(item) => {
+            // Handle edit actions based on type
+            console.log('Edit item:', item);
+            if (item?.type === 'mailbox') {
+              // For mailbox, show user authentication dialog
+              setShowUserAuthDialog(true);
+              startAuthentication(true); // Skip wizard navigation
+            } else {
+              setShowSetupWizard(true);
+            }
+          }}
+        />
+        
+        {/* User Authentication Dialog for Add Mailbox */}
+        <Dialog
+          open={showUserAuthDialog}
+          onClose={() => {
+            setShowUserAuthDialog(false);
+            setPolling(false);
+            setDeviceCodeInfo(null);
+          }}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle>Add User Mailbox</DialogTitle>
+          <DialogContent>
+            {deviceCodeInfo ? (
+              <>
+                <Typography variant="body1" gutterBottom>
+                  Authenticate the user account that will send emails:
+                </Typography>
+                
+                <Card sx={{ mt: 2, bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+                  <CardContent>
+                    <Typography variant="h3" align="center" gutterBottom>
+                      {deviceCodeInfo.userCode}
+                    </Typography>
+                    <Box display="flex" justifyContent="center" mt={2}>
+                      <Button
+                        variant="contained"
+                        color="secondary"
+                        startIcon={<CopyIcon />}
+                        onClick={() => copyToClipboard(deviceCodeInfo.userCode)}
+                      >
+                        Copy Code
+                      </Button>
+                    </Box>
+                  </CardContent>
+                </Card>
+                
+                <Box mt={3} textAlign="center">
+                  <Typography variant="body2" gutterBottom>
+                    Go to this URL and enter the code:
+                  </Typography>
+                  <Button
+                    variant="outlined"
+                    startIcon={<LinkIcon />}
+                    href={deviceCodeInfo.verificationUrl || 'https://microsoft.com/devicelogin'}
+                    target="_blank"
+                    sx={{ mt: 1 }}
+                  >
+                    microsoft.com/devicelogin
+                  </Button>
+                </Box>
+                
+                {polling && (
+                  <Box mt={3} display="flex" alignItems="center" justifyContent="center">
+                    <CircularProgress size={20} sx={{ mr: 2 }} />
+                    <Typography>Waiting for user authentication...</Typography>
+                  </Box>
+                )}
+                
+                <Alert severity="info" sx={{ mt: 3 }}>
+                  <AlertTitle>Important</AlertTitle>
+                  The user must:
+                  • Sign in with their Exchange account
+                  • Accept the Mail.Send permission
+                  • This grants the app permission to send emails as this user
+                </Alert>
+              </>
+            ) : (
+              <Box display="flex" justifyContent="center" alignItems="center" py={4}>
+                <CircularProgress />
+              </Box>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => {
+              setShowUserAuthDialog(false);
+              setPolling(false);
+              setDeviceCodeInfo(null);
+            }}>
+              Cancel
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    );
+  }
+  
+  // Legacy status display - keeping for reference
+  if (false && status?.isConfigured && !showSetupWizard) {
     return (
       <Container maxWidth="lg">
         <Paper sx={{ p: 4, mt: 3 }}>
@@ -891,13 +1045,36 @@ const ExchangeSetup = () => {
   return (
     <Container maxWidth="lg">
       <Paper sx={{ p: 4, mt: 3 }}>
-        <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-          {steps.map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+          <Typography variant="h5">Exchange Online Setup</Typography>
+          <Button
+            variant="outlined"
+            color="secondary"
+            onClick={() => {
+              // Reset wizard state and close
+              setActiveStep(0);
+              setSetupMode('choose');
+              setError(null);
+              setSuccess(null);
+              setShowSetupWizard(false);
+              // Refresh status to show current state
+              checkStatus();
+            }}
+          >
+            Cancel Setup
+          </Button>
+        </Box>
+        
+        {/* Only show stepper for manual setup or when choosing method - automatic setup has its own stepper */}
+        {(activeStep === 0 || setupMode !== 'automatic') && (
+          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+            {steps.map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
+        )}
         
         {renderStepContent(activeStep)}
         

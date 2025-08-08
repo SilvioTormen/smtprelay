@@ -99,6 +99,17 @@ router.post('/admin/poll', authenticate, requireConfigure, async (req, res) => {
       return res.status(400).json({ error: 'Device code expired' });
     }
     
+    // Check if already authenticated
+    if (flow.authenticated) {
+      return res.json({
+        success: true,
+        message: 'Already authenticated',
+        authenticated: true,
+        adminUser: flow.adminUser,
+        adminToken: flow.adminToken
+      });
+    }
+    
     const tokenUrl = `https://login.microsoftonline.com/${flow.tenantId}/oauth2/v2.0/token`;
     
     try {
@@ -115,6 +126,7 @@ router.post('/admin/poll', authenticate, requireConfigure, async (req, res) => {
       // Success! Store the admin token
       flow.adminToken = data.access_token;
       flow.refreshToken = data.refresh_token;
+      flow.authenticated = true; // Mark as authenticated to prevent re-polling
       
       console.log('Admin authenticated successfully');
       
@@ -142,12 +154,23 @@ router.post('/admin/poll', authenticate, requireConfigure, async (req, res) => {
         console.log('Could not get user info:', userError.message);
       }
       
+      // Store admin auth in session for subsequent requests
+      req.session.adminAuth = {
+        accessToken: flow.adminToken,
+        refreshToken: flow.refreshToken,
+        expiresAt: Date.now() + (3600 * 1000), // 1 hour
+        userPrincipalName: flow.adminUser?.userPrincipalName,
+        displayName: flow.adminUser?.displayName,
+        adminRoles: flow.adminRoles
+      };
+      
       res.json({
         success: true,
         message: 'Admin authentication successful!',
         adminUser: flow.adminUser?.userPrincipalName || 'Administrator',
         adminRoles: flow.adminRoles || [],
-        canCreateApps: true
+        canCreateApps: true,
+        authenticated: true
       });
       
     } catch (error) {
@@ -238,7 +261,7 @@ router.post('/admin/create-app', authenticate, requireConfigure, async (req, res
       } else {
         // Delegated permissions for device code flow
         graphPermissions.resourceAccess.push({
-          id: 'b633e1c5-b582-4048-a93e-9f11b44c7e96', // Mail.Send (Delegated)
+          id: 'e383f46e-2787-4529-855e-0e479a3ffac0', // Mail.Send (Delegated) - correct ID
           type: 'Scope'
         });
         graphPermissions.resourceAccess.push({

@@ -16,7 +16,8 @@ let tokenManager;
 let azureAppService;
 
 // OAuth2 Configuration Management
-router.get('/status', authenticate, requireConfigure, async (req, res) => {
+// Allow read access for all authenticated users
+router.get('/status', authenticate, async (req, res) => {
     try {
         // Initialize token manager if needed
         if (!tokenManager) {
@@ -44,6 +45,18 @@ router.get('/status', authenticate, requireConfigure, async (req, res) => {
         // Check if we have valid tokens
         const hasTokens = accounts.length > 0 && accounts.some(a => a.hasValidToken);
         const defaultAccount = accounts.find(a => a.isDefault);
+        
+        // Build applications array from config
+        const applications = [];
+        if (config.exchange_online?.auth?.client_id) {
+            applications.push({
+                displayName: config.exchange_online?.app_name || 'SMTP Relay for Exchange Online',
+                appId: config.exchange_online.auth.client_id,
+                tenantId: config.exchange_online.auth.tenant_id,
+                authMethod: config.exchange_online.auth.method,
+                status: hasTokens ? 'active' : 'inactive'
+            });
+        }
 
         res.json({
             hasConfig,
@@ -54,7 +67,10 @@ router.get('/status', authenticate, requireConfigure, async (req, res) => {
             exchangeConfig: config.exchange_online || null,
             authMethod: config.exchange_online?.auth?.method || null,
             apiMethod: config.exchange_online?.api_method || null,
-            isConfigured: hasConfig && hasTokens
+            isConfigured: hasConfig && hasTokens,
+            applications, // Add applications array
+            tenantId: config.exchange_online?.auth?.tenant_id,
+            clientId: config.exchange_online?.auth?.client_id
         });
     } catch (error) {
         console.error('Error checking Exchange status:', error);
@@ -722,6 +738,498 @@ router.post('/azure/clear-admin', authenticate, requireConfigure, async (req, re
     } catch (error) {
         console.error('Clear admin error:', error);
         res.status(500).json({ error: 'Failed to clear admin authentication' });
+    }
+});
+
+// Get token status - detailed information about current tokens
+router.get('/token-status', authenticate, requireConfigure, async (req, res) => {
+    try {
+        // Initialize token manager if needed
+        if (!tokenManager) {
+            tokenManager = getTokenManager(console);
+        }
+        
+        const accounts = await tokenManager.listAccounts();
+        const defaultAccount = accounts.find(a => a.isDefault);
+        
+        if (!defaultAccount) {
+            return res.json({
+                accessToken: false,
+                refreshToken: false,
+                error: 'No tokens found'
+            });
+        }
+        
+        const tokens = await tokenManager.getAccountTokens(defaultAccount.id || defaultAccount.email);
+        const now = new Date();
+        
+        res.json({
+            accessToken: !!tokens?.access_token,
+            refreshToken: !!tokens?.refresh_token,
+            accessTokenExpiry: tokens?.expires_at,
+            refreshTokenExpiry: tokens?.refresh_token_expires_at || 
+                (tokens?.expires_at ? new Date(new Date(tokens.expires_at).getTime() + 90 * 24 * 60 * 60 * 1000).toISOString() : null),
+            lastRefresh: tokens?.obtained_at || tokens?.created_at,
+            tokenType: tokens?.token_type,
+            scope: tokens?.scope,
+            isValid: tokens?.expires_at ? new Date(tokens.expires_at) > now : false
+        });
+    } catch (error) {
+        console.error('Token status error:', error);
+        res.status(500).json({ 
+            error: 'Failed to get token status',
+            details: error.message 
+        });
+    }
+});
+
+// Get configured mailboxes
+router.get('/mailboxes', authenticate, requireConfigure, async (req, res) => {
+    try {
+        const configPath = path.join(process.cwd(), 'config.yml');
+        let mailboxes = [];
+        
+        try {
+            const configContent = await fs.readFile(configPath, 'utf8');
+            const config = yaml.parse(configContent);
+            const exchangeConfig = config.exchange_online || {};
+            
+            // Get primary mailbox
+            if (exchangeConfig.auth?.send_as || exchangeConfig.default_from) {
+                mailboxes.push({
+                    email: exchangeConfig.auth?.send_as || exchangeConfig.default_from,
+                    type: 'Primary',
+                    permissions: ['Send As', 'Send on Behalf'],
+                    status: 'active'
+                });
+            }
+            
+            // Get additional mailboxes if configured
+            if (exchangeConfig.mailboxes && Array.isArray(exchangeConfig.mailboxes)) {
+                exchangeConfig.mailboxes.forEach(mailbox => {
+                    mailboxes.push({
+                        email: mailbox.email || mailbox,
+                        type: mailbox.type || 'Shared',
+                        permissions: mailbox.permissions || ['Send As'],
+                        status: mailbox.status || 'active'
+                    });
+                });
+            }
+            
+            // Get authorized senders
+            if (exchangeConfig.authorized_senders && Array.isArray(exchangeConfig.authorized_senders)) {
+                exchangeConfig.authorized_senders.forEach(sender => {
+                    if (!mailboxes.find(m => m.email === sender)) {
+                        mailboxes.push({
+                            email: sender,
+                            type: 'Authorized Sender',
+                            permissions: ['Send As'],
+                            status: 'active'
+                        });
+                    }
+                });
+            }
+            
+            // Also check token manager for accounts
+            if (!tokenManager) {
+                tokenManager = getTokenManager(console);
+            }
+            const accounts = await tokenManager.listAccounts();
+            
+            accounts.forEach(account => {
+                if (!mailboxes.find(m => m.email === account.email)) {
+                    mailboxes.push({
+                        email: account.email,
+                        type: account.isDefault ? 'Default Account' : 'Token Account',
+                        permissions: ['Send As'],
+                        status: account.hasValidToken ? 'active' : 'expired'
+                    });
+                }
+            });
+            
+        } catch (err) {
+            console.log('Error reading mailboxes:', err.message);
+        }
+        
+        res.json(mailboxes);
+    } catch (error) {
+        console.error('Mailboxes fetch error:', error);
+        res.status(500).json({ 
+            error: 'Failed to get mailboxes',
+            details: error.message 
+        });
+    }
+});
+
+// Delete a mailbox and all associated tokens
+router.delete('/mailboxes/:email', authenticate, requireConfigure, async (req, res) => {
+    try {
+        const { email } = req.params;
+        const decodedEmail = decodeURIComponent(email);
+        
+        console.log(`Deleting mailbox: ${decodedEmail}`);
+        
+        // Initialize token manager if needed
+        if (!tokenManager) {
+            tokenManager = getTokenManager(console);
+        }
+        
+        // Find and delete the account from token manager
+        const accounts = await tokenManager.listAccounts();
+        const account = accounts.find(a => a.email === decodedEmail);
+        
+        if (account) {
+            // Delete the account and all its tokens
+            try {
+                // Use the account ID, not the email
+                await tokenManager.removeAccount(account.id);
+                console.log(`Successfully deleted account tokens for: ${decodedEmail} (ID: ${account.id})`);
+            } catch (tokenError) {
+                console.error(`Error deleting tokens for ${decodedEmail}:`, tokenError);
+                // Continue even if token deletion fails
+            }
+        } else {
+            console.log(`No token account found for email: ${decodedEmail}`);
+        }
+        
+        // Update config.yml to remove mailbox from authorized senders and mailboxes lists
+        const configPath = path.join(process.cwd(), 'config.yml');
+        try {
+            const configContent = await fs.readFile(configPath, 'utf8');
+            const config = yaml.parse(configContent);
+            
+            if (config.exchange_online) {
+                // Remove from authorized_senders
+                if (config.exchange_online.authorized_senders) {
+                    config.exchange_online.authorized_senders = 
+                        config.exchange_online.authorized_senders.filter(s => s !== decodedEmail);
+                    
+                    // Remove the array if empty
+                    if (config.exchange_online.authorized_senders.length === 0) {
+                        delete config.exchange_online.authorized_senders;
+                    }
+                }
+                
+                // Remove from mailboxes array
+                if (config.exchange_online.mailboxes) {
+                    config.exchange_online.mailboxes = 
+                        config.exchange_online.mailboxes.filter(m => {
+                            if (typeof m === 'string') {
+                                return m !== decodedEmail;
+                            }
+                            return m.email !== decodedEmail;
+                        });
+                    
+                    // Remove the array if empty
+                    if (config.exchange_online.mailboxes.length === 0) {
+                        delete config.exchange_online.mailboxes;
+                    }
+                }
+                
+                // If this was the default send_as account, clear it
+                if (config.exchange_online.auth?.send_as === decodedEmail) {
+                    delete config.exchange_online.auth.send_as;
+                }
+                
+                if (config.exchange_online.default_from === decodedEmail) {
+                    delete config.exchange_online.default_from;
+                }
+                
+                // Write updated config
+                await fs.writeFile(configPath, yaml.stringify(config), 'utf8');
+                console.log(`Updated config.yml to remove mailbox: ${decodedEmail}`);
+            }
+        } catch (configError) {
+            console.error('Error updating config:', configError);
+            // Continue even if config update fails
+        }
+        
+        res.json({ 
+            success: true, 
+            message: `Mailbox ${decodedEmail} and all associated tokens have been deleted`
+        });
+        
+    } catch (error) {
+        console.error('Mailbox deletion error:', error);
+        res.status(500).json({ 
+            error: 'Failed to delete mailbox',
+            details: error.message 
+        });
+    }
+});
+
+// Test Exchange connection
+router.post('/test', authenticate, requireConfigure, async (req, res) => {
+    try {
+        const { accountId } = req.body;
+        
+        // Initialize token manager if needed
+        if (!tokenManager) {
+            tokenManager = getTokenManager(console);
+        }
+        
+        // Check if we have valid tokens
+        const accounts = await tokenManager.listAccounts();
+        const account = accountId ? 
+            accounts.find(a => a.email === accountId) : 
+            accounts.find(a => a.isDefault);
+        
+        if (!account) {
+            return res.json({
+                success: false,
+                error: 'No authentication tokens found. Please complete setup first.'
+            });
+        }
+        
+        if (!account.hasValidToken) {
+            return res.json({
+                success: false,
+                error: 'Authentication token expired. Please re-authenticate.'
+            });
+        }
+        
+        // Test the actual connection by trying to get a token
+        try {
+            const tokens = await tokenManager.getAccountTokens(account.id || account.email);
+            if (tokens?.access_token) {
+                res.json({
+                    success: true,
+                    message: 'Exchange Online connection is working',
+                    account: account.email,
+                    tokenValid: true,
+                    apiMethod: 'Microsoft Graph API'
+                });
+            } else {
+                res.json({
+                    success: false,
+                    error: 'Could not retrieve access token'
+                });
+            }
+        } catch (tokenError) {
+            res.json({
+                success: false,
+                error: 'Token validation failed',
+                details: tokenError.message
+            });
+        }
+    } catch (error) {
+        console.error('Connection test error:', error);
+        res.status(500).json({ 
+            success: false,
+            error: 'Connection test failed',
+            details: error.message 
+        });
+    }
+});
+
+// Delete Azure AD Application configuration (Smart Delete)
+// Note: Using only authenticate middleware, permission check done inside
+router.post('/delete-app', authenticate, async (req, res) => {
+    try {
+        const { appId, tenantId, displayName, deleteFromAzure } = req.body;
+        
+        if (!appId) {
+            return res.status(400).json({ error: 'Application ID is required' });
+        }
+        
+        const configPath = path.join(process.cwd(), 'config.yml');
+        const tokensPath = path.join(process.cwd(), '.tokens.json');
+        
+        // Read current config
+        let config = {};
+        try {
+            const configContent = await fs.readFile(configPath, 'utf8');
+            config = yaml.parse(configContent);
+        } catch (err) {
+            return res.status(404).json({ error: 'Configuration file not found' });
+        }
+        
+        // Check if this is the configured app
+        if (config.exchange_online?.auth?.client_id === appId) {
+            // If deleting from Azure AD, we need admin authentication
+            if (deleteFromAzure) {
+                // Initialize Azure service if needed
+                if (!azureAppService) {
+                    azureAppService = new AzureAppRegistrationService(console);
+                }
+                
+                // Check if we have admin auth in session
+                const hasAdminAuth = req.session?.adminAuth?.accessToken && 
+                                    req.session?.adminAuth?.expiresAt > Date.now();
+                
+                if (!hasAdminAuth) {
+                    // Store the delete request in session for after auth
+                    req.session.pendingDelete = {
+                        appId,
+                        displayName,
+                        tenantId,
+                        timestamp: Date.now()
+                    };
+                    
+                    // Return a flag that tells frontend to initiate admin auth
+                    return res.status(401).json({ 
+                        requiresAdminAuth: true,
+                        message: 'Administrator authentication required to delete Azure AD application',
+                        action: 'initiate_admin_auth',
+                        tenantId: config.exchange_online?.auth?.tenant_id || tenantId
+                    });
+                }
+                
+                // Try to delete from Azure AD
+                try {
+                    console.log(`Attempting to delete Azure AD app: ${appId} (${displayName})`);
+                    
+                    // First, get the object ID of the application
+                    const graphUrl = `https://graph.microsoft.com/v1.0/applications?$filter=appId eq '${appId}'`;
+                    const searchResponse = await fetch(graphUrl, {
+                        headers: {
+                            'Authorization': `Bearer ${req.session.adminAuth.accessToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    if (!searchResponse.ok) {
+                        throw new Error(`Failed to find application: ${searchResponse.statusText}`);
+                    }
+                    
+                    const searchData = await searchResponse.json();
+                    let objectId = null;
+                    
+                    if (!searchData.value || searchData.value.length === 0) {
+                        console.log(`Application ${appId} not found in Azure AD - may have been already deleted`);
+                        // Continue with local deletion even if Azure AD app doesn't exist
+                    } else {
+                        objectId = searchData.value[0].id;
+                        
+                        // Delete the application
+                        const deleteUrl = `https://graph.microsoft.com/v1.0/applications/${objectId}`;
+                        const deleteResponse = await fetch(deleteUrl, {
+                            method: 'DELETE',
+                            headers: {
+                                'Authorization': `Bearer ${req.session.adminAuth.accessToken}`
+                            }
+                        });
+                        
+                        if (!deleteResponse.ok && deleteResponse.status !== 204) {
+                            throw new Error(`Failed to delete application: ${deleteResponse.statusText}`);
+                        }
+                        
+                        console.log(`Successfully deleted Azure AD app: ${appId} (${displayName})`);
+                    }
+                    
+                    // Audit log
+                    const auditLog = {
+                        timestamp: new Date().toISOString(),
+                        action: 'DELETE_AZURE_APP',
+                        user: req.session.user?.username || 'unknown',
+                        appId,
+                        displayName,
+                        objectId: objectId || 'not_found',
+                        tenantId,
+                        result: 'success'
+                    };
+                    
+                    // Write audit log
+                    const auditPath = path.join(process.cwd(), 'logs', 'azure-delete-audit.log');
+                    await fs.appendFile(auditPath, JSON.stringify(auditLog) + '\n').catch(() => {});
+                    
+                } catch (azureError) {
+                    console.error('Failed to delete from Azure AD:', azureError);
+                    
+                    // Log the failed attempt
+                    const auditLog = {
+                        timestamp: new Date().toISOString(),
+                        action: 'DELETE_AZURE_APP_FAILED',
+                        user: req.session.user?.username || 'unknown',
+                        appId,
+                        displayName,
+                        error: azureError.message,
+                        result: 'failed'
+                    };
+                    
+                    const auditPath = path.join(process.cwd(), 'logs', 'azure-delete-audit.log');
+                    await fs.appendFile(auditPath, JSON.stringify(auditLog) + '\n').catch(() => {});
+                    
+                    return res.status(500).json({ 
+                        error: 'Failed to delete application from Azure AD',
+                        details: azureError.message
+                    });
+                }
+            }
+            
+            // Clear the Exchange Online configuration
+            delete config.exchange_online;
+            
+            // Remove tokens if they exist
+            try {
+                await fs.unlink(tokensPath);
+                console.log('Deleted tokens file');
+            } catch (err) {
+                // Tokens file might not exist, that's okay
+            }
+            
+            // Clear token manager cache if available
+            if (tokenManager) {
+                try {
+                    const accounts = await tokenManager.listAccounts();
+                    for (const account of accounts) {
+                        await tokenManager.removeAccount(account.id);
+                    }
+                } catch (err) {
+                    console.log('Could not clear token manager:', err.message);
+                }
+            }
+            
+            // Save updated config
+            const yamlStr = yaml.stringify(config);
+            await fs.writeFile(configPath, yamlStr, 'utf8');
+            
+            // Clear session data related to Azure
+            if (req.session) {
+                delete req.session.adminAuth;
+                delete req.session.azureState;
+                delete req.session.azureNonce;
+            }
+            
+            // Audit log for config deletion
+            const auditLog = {
+                timestamp: new Date().toISOString(),
+                action: deleteFromAzure ? 'DELETE_CONFIG_AND_AZURE' : 'DELETE_CONFIG_ONLY',
+                user: req.session?.user?.username || 'unknown',
+                appId,
+                displayName,
+                tenantId,
+                result: 'success'
+            };
+            
+            const auditPath = path.join(process.cwd(), 'logs', 'config-delete-audit.log');
+            await fs.appendFile(auditPath, JSON.stringify(auditLog) + '\n').catch(() => {});
+            
+            res.json({ 
+                success: true, 
+                message: deleteFromAzure 
+                    ? 'Application and Azure AD registration deleted successfully'
+                    : 'Application configuration deleted successfully',
+                deletedApp: {
+                    appId,
+                    displayName,
+                    tenantId
+                },
+                deletedFromAzure: deleteFromAzure
+            });
+        } else {
+            res.status(404).json({ 
+                error: 'Application not found in configuration',
+                requestedApp: appId,
+                configuredApp: config.exchange_online?.auth?.client_id
+            });
+        }
+    } catch (error) {
+        console.error('Delete app error:', error);
+        res.status(500).json({ 
+            error: 'Failed to delete application configuration',
+            details: error.message 
+        });
     }
 });
 

@@ -37,11 +37,13 @@ export const AuthProvider = ({ children }) => {
       if (response.ok) {
         const data = await response.json();
         setCsrfToken(data.csrfToken);
-        console.log('[AuthContext] CSRF token fetched');
+        console.log('[AuthContext] CSRF token fetched:', data.csrfToken);
+        return data.csrfToken;
       }
     } catch (error) {
       console.error('[AuthContext] Failed to fetch CSRF token:', error);
     }
+    return null;
   };
 
   // Debug user state changes
@@ -169,8 +171,13 @@ export const AuthProvider = ({ children }) => {
     console.log('[AuthContext] API Request to:', url);
     
     // For non-GET requests, ensure we have CSRF token
-    if (options.method && options.method !== 'GET' && !csrfToken) {
-      await fetchCSRFToken();
+    let tokenToUse = csrfToken;
+    if (options.method && options.method !== 'GET') {
+      if (!tokenToUse) {
+        console.log('[AuthContext] CSRF token not found, fetching...');
+        tokenToUse = await fetchCSRFToken();
+      }
+      console.log('[AuthContext] CSRF token to use:', tokenToUse ? `${tokenToUse.substring(0, 10)}...` : 'none');
     }
     
     // SECURE: Use httpOnly cookies for authentication
@@ -181,16 +188,33 @@ export const AuthProvider = ({ children }) => {
       headers: {
         'Content-Type': 'application/json',
         // Add CSRF token for non-GET requests
-        ...(options.method && options.method !== 'GET' && csrfToken ? { 'X-CSRF-Token': csrfToken } : {}),
+        ...(options.method && options.method !== 'GET' && tokenToUse ? { 'X-CSRF-Token': tokenToUse } : {}),
         // No Authorization header needed - cookies handle auth securely
         ...options.headers
       }
     };
+    
+    console.log('[AuthContext] Request headers:', requestOptions.headers);
 
     try {
       const response = await fetch(`${API_URL}${url}`, requestOptions);
       
       if (response.status === 401) {
+        // Check if this is a special admin auth required response
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            const clonedResponse = response.clone();
+            const data = await clonedResponse.json();
+            if (data.requiresAdminAuth) {
+              console.log('[AuthContext] Admin authentication required, not a login issue');
+              return response; // Return the response so the component can handle it
+            }
+          } catch (e) {
+            // If parsing fails, treat as normal 401
+          }
+        }
+        
         console.log('[AuthContext] 401 Unauthorized, redirecting to login');
         sessionStorage.clear();
         setUser(null);
