@@ -46,9 +46,11 @@ import {
   Delete as DeleteIcon,
   Info as InfoIcon,
   Lock as LockIcon,
-  LockOpen as LockOpenIcon
+  LockOpen as LockOpenIcon,
+  Settings as SystemIcon
 } from '@mui/icons-material';
 import { useSnackbar } from 'notistack';
+import SystemConfig from '../components/SystemConfig';
 
 function TabPanel({ children, value, index, ...other }) {
   return (
@@ -281,8 +283,7 @@ export default function Settings() {
           sx={{ borderBottom: 1, borderColor: 'divider' }}
         >
           <Tab label="TLS Certificates" icon={<SecurityIcon />} />
-          <Tab label="Email Settings" icon={<KeyIcon />} />
-          <Tab label="System Config" icon={<InfoIcon />} />
+          <Tab label="System Config" icon={<SystemIcon />} />
         </Tabs>
       </Paper>
 
@@ -639,6 +640,11 @@ export default function Settings() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* System Config Tab Panel */}
+      <TabPanel value={tabValue} index={1}>
+        <SystemConfig />
+      </TabPanel>
     </Box>
   );
 }

@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { ThemeProvider, createTheme, CssBaseline, IconButton } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 import { SnackbarProvider } from 'notistack';
 import { QueryClient, QueryClientProvider } from 'react-query';
 import { ReactQueryDevtools } from 'react-query/devtools';
@@ -40,6 +41,7 @@ const queryClient = new QueryClient({
 });
 
 function App() {
+  const notistackRef = useRef();
   const [darkMode, setDarkMode] = useState(() => {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : true;
@@ -167,6 +169,7 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <SnackbarProvider
+          ref={notistackRef}
           maxSnack={3}
           anchorOrigin={{
             vertical: 'bottom',
@@ -174,6 +177,15 @@ function App() {
           }}
           autoHideDuration={4000}
           TransitionComponent={motion.div}
+          action={(snackbarKey) => (
+            <IconButton
+              size="small"
+              color="inherit"
+              onClick={() => notistackRef.current.closeSnackbar(snackbarKey)}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          )}
         >
           <Router>
             <AuthProvider>

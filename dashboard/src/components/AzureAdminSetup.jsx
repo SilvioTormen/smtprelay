@@ -65,6 +65,7 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
   });
   
   const [appCreated, setAppCreated] = useState(null);
+  const [redirectCountdown, setRedirectCountdown] = useState(null);
   
   const steps = ['Enter Tenant', 'Admin Authentication', 'Configure App', 'Create App'];
   
@@ -162,16 +163,23 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
         }, 2000);
       }
       
-      // Call onComplete after a delay to show success
-      setTimeout(() => {
-        if (onComplete) {
-          onComplete({
-            application: data.application,
-            config: appConfig,
-            success: true
-          });
+      // Start countdown for redirect
+      setRedirectCountdown(5);
+      let countdown = 5;
+      const countdownInterval = setInterval(() => {
+        countdown--;
+        setRedirectCountdown(countdown);
+        if (countdown <= 0) {
+          clearInterval(countdownInterval);
+          if (onComplete) {
+            onComplete({
+              application: data.application,
+              config: appConfig,
+              success: true
+            });
+          }
         }
-      }, 5000); // Give more time to see the success message
+      }, 1000);
       
     } catch (err) {
       console.error('App creation error:', err);
@@ -518,13 +526,14 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
                 
                 <Box sx={{ mt: 3, textAlign: 'center' }}>
                   <Typography variant="body2" color="text.secondary">
-                    Setup complete! Redirecting in a few seconds...
+                    Setup complete! {redirectCountdown && redirectCountdown > 0 && `Redirecting in ${redirectCountdown} seconds...`}
                   </Typography>
                   <Button
                     variant="contained"
                     color="primary"
                     sx={{ mt: 2 }}
                     onClick={() => {
+                      setRedirectCountdown(null); // Cancel auto-redirect
                       if (onComplete) {
                         onComplete({
                           application: appCreated.application,
@@ -564,7 +573,7 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
       <Box display="flex" alignItems="center" mb={2}>
         <AdminIcon sx={{ mr: 2, fontSize: 40, color: 'primary.main' }} />
         <Typography variant="h5">
-          Azure AD Automatic Setup (Global Admin)
+          Exchange Online Configuration
         </Typography>
       </Box>
       
@@ -591,12 +600,37 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
       )}
       
       <Box display="flex" justifyContent="space-between" mt={3}>
-        <Button onClick={onCancel}>
-          Cancel
-        </Button>
-        {activeStep > 0 && activeStep < 3 && !polling && (
-          <Button onClick={() => setActiveStep(activeStep - 1)}>
-            Back
+        <Box>
+          {activeStep > 0 && !polling && !appCreated && (
+            <Button 
+              onClick={() => setActiveStep(activeStep - 1)}
+              sx={{ mr: 1 }}
+            >
+              Back
+            </Button>
+          )}
+          <Button 
+            onClick={onCancel}
+            color="secondary"
+          >
+            Cancel
+          </Button>
+        </Box>
+        {activeStep === 3 && appCreated && (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => {
+              if (onComplete) {
+                onComplete({
+                  application: appCreated.application,
+                  config: appConfig,
+                  success: true
+                });
+              }
+            }}
+          >
+            Finish Setup
           </Button>
         )}
       </Box>

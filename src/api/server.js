@@ -53,10 +53,10 @@ class APIServer {
         directives: {
           defaultSrc: ["'self'"],
           scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Required for React
-          styleSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
           imgSrc: ["'self'", "data:", "https:"],
           connectSrc: ["'self'", "ws:", "wss:"],
-          fontSrc: ["'self'", "data:"],
+          fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
           objectSrc: ["'none'"],
           mediaSrc: ["'none'"],
           frameSrc: ["'none'"],
@@ -154,7 +154,7 @@ class APIServer {
     // Rate Limiting - Prevent brute force
     const limiter = rateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 100, // limit each IP to 100 requests per windowMs
+      max: 500, // limit each IP to 500 requests per windowMs (increased from 100)
       message: 'Too many requests from this IP',
       standardHeaders: true,
       legacyHeaders: false,
@@ -163,13 +163,21 @@ class APIServer {
     // Stricter rate limit for auth endpoints
     const authLimiter = rateLimit({
       windowMs: 15 * 60 * 1000,
-      max: 5, // only 5 login attempts per 15 minutes
+      max: 20, // 20 login attempts per 15 minutes (increased from 5)
       skipSuccessfulRequests: true,
       message: 'Too many login attempts'
     });
 
     // Apply rate limiting to ALL routes, not just /api/
-    this.app.use(limiter);
+    // Skip rate limiting for polling endpoints
+    this.app.use((req, res, next) => {
+      // Skip rate limiting for admin poll endpoints
+      if (req.path === '/api/azure-graph/admin/poll' || 
+          req.path === '/api/exchange-config/oauth/poll') {
+        return next();
+      }
+      return limiter(req, res, next);
+    });
     this.app.use('/api/auth/login', authLimiter);
 
     // Session Management with security enhancements
@@ -308,6 +316,7 @@ class APIServer {
     this.app.use('/api/azure-setup', require('./routes/azure-setup'));
     this.app.use('/api/azure-simple', require('./routes/azure-simple'));
     this.app.use('/api/azure-graph', require('./routes/azure-graph-admin'));
+    this.app.use('/api/system', require('./routes/system'));
 
     // Health Check (no auth required)
     this.app.get('/api/health', (req, res) => {
