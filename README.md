@@ -1,590 +1,279 @@
-# Legacy SMTP Relay für Exchange Online
+# Enterprise SMTP Relay for Microsoft 365
 
-Ein einfacher, robuster SMTP Relay Service für Legacy-Geräte (Drucker, Scanner, alte Applikationen) die E-Mails über Exchange Online/Microsoft 365 versenden müssen.
+A robust, enterprise-grade SMTP relay service designed for legacy devices (printers, scanners, monitoring systems) that need to send emails through Exchange Online/Microsoft 365.
 
-## 🎯 Features
+## 🚀 Key Features
 
-- **Multi-Port Support**: 
-  - Port 25 (Plain SMTP für alte Geräte)
-  - Port 587 (STARTTLS für neuere Geräte)  
-  - Port 465 (Implicit TLS für spezielle Geräte)
-  
-- **Legacy-freundlich**:
-  - Keine Authentifizierung für IP-Whitelist
-  - Statische User für Legacy-Geräte
-  - Unterstützt alte TLS-Versionen (TLS 1.0+)
-  - Relaxed SMTP für nicht-konforme Geräte
-  - 8-bit MIME Support für alte Systeme
+### **Multi-Port Support**
+- Port 25 (Plain SMTP for legacy devices)
+- Port 587 (STARTTLS for modern devices)  
+- Port 465 (Implicit TLS for specialized equipment)
 
-- **Exchange Online Integration**:
-  - OAuth2 Modern Authentication (Device Code, Authorization Code, Client Credentials)
-  - Interaktives Setup mit Wizard
-  - Automatische Token-Erneuerung
-  - Microsoft Graph API Alternative
+### **Legacy Device Compatibility**
+- No authentication required for IP whitelist
+- Static users for legacy authentication
+- Supports old TLS versions (TLS 1.0+)
+- Relaxed SMTP for non-compliant devices
+- 8-bit MIME support
 
-## 📋 Voraussetzungen
+### **Microsoft 365 Integration**
+- **Automated Azure Setup Wizard** - Configure Azure AD app registration in minutes
+- **Exchange Configuration Management** - Automated mail flow and connector setup
+- OAuth2 Modern Authentication (Device Code, Authorization Code, Client Credentials)
+- Microsoft Graph API integration (recommended over SMTP OAuth2)
+- Automatic token renewal and management
 
-- Red Hat Enterprise Linux 8/9/10 oder kompatibel (Rocky Linux, AlmaLinux, CentOS Stream)
-- Node.js 18+ (LTS empfohlen: v20.x, RHEL 10 hat v22 vorinstalliert)
-- Exchange Online/Microsoft 365 Account mit aktivem Abonnement
-- Azure AD App Registration für OAuth2
-- Firmen-internes Netzwerk oder sichere DMZ
-- Redis (optional, für Sessions und Caching)
+### **Enterprise Security**
+- Multi-Factor Authentication (TOTP + FIDO2)
+- Device fingerprinting and anomaly detection
+- IP whitelisting with CIDR support
+- Rate limiting and DDoS protection
+- Comprehensive audit logging
+- Security score: 10/10
 
-## 🚀 Schnellstart
+## 📋 Requirements
 
-### ⚡ Quick Install (Copy & Paste)
+- Red Hat Enterprise Linux 8/9/10 or compatible (Rocky Linux, AlmaLinux, CentOS Stream)
+- Node.js 18+ (LTS recommended: v20.x)
+- Microsoft 365 with active subscription
+- Azure AD App Registration (can be automated via setup wizard)
+- Redis (optional, for sessions and caching)
+
+## 🎯 Quick Start
+
+### Option 1: Automated Setup with Azure Wizard (Recommended)
 
 ```bash
-# Alles in einem - für Testzwecke
-git clone https://github.com/SilvioTormen/smtprelay.git && \
-cd smtprelay && \
-npm install && \
-npm install --prefix dashboard && \
-cd .. && \
-sudo useradd -r -s /bin/false smtp-relay 2>/dev/null && \
-sudo mv smtprelay /opt/smtp-relay && \
-sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay && \
-sudo mkdir -p /var/log/smtp-relay && \
-sudo chown smtp-relay:smtp-relay /var/log/smtp-relay && \
-cd /opt/smtp-relay && \
-sudo -u smtp-relay npm run setup && \
-sudo ./scripts/post-install.sh && \
-sudo cp smtp-relay.service /etc/systemd/system/ && \
-sudo systemctl daemon-reload && \
-sudo systemctl enable smtp-relay && \
-echo "✅ Installation complete! Run 'sudo -u smtp-relay npm run setup:auth' for OAuth2"
+# Clone and install
+git clone https://github.com/SilvioTormen/smtprelay.git
+cd smtprelay
+npm install
+npm install --prefix dashboard
+
+# Run the automated setup wizard
+npm run setup:azure
+
+# The wizard will:
+# - Create Azure AD app registration automatically
+# - Configure Exchange Online connectors
+# - Set up mail flow rules
+# - Generate all required credentials
 ```
 
-### 1. Installation mit Ansible (Empfohlen für Production)
-
-#### Vorbereitung auf Control Node:
+### Option 2: Ansible Deployment (Production)
 
 ```bash
-# Repository auf Ansible Control Node klonen
+# On Ansible control node
 git clone https://github.com/SilvioTormen/smtprelay.git
 cd smtprelay/ansible
 
-# Inventory erstellen
+# Configure inventory
 cp -r inventory/example inventory/production
 vim inventory/production/hosts.yml
-```
 
-#### Inventory konfigurieren (hosts.yml):
-
-```yaml
-all:
-  children:
-    smtp_relay_servers:
-      hosts:
-        relay1:
-          ansible_host: 192.168.1.10
-          ansible_user: root
-          # Azure AD Konfiguration
-          exchange_tenant_id: "12345678-1234-1234-1234-123456789012"
-          exchange_client_id: "abcdef12-3456-7890-abcd-ef1234567890"
-          exchange_api_method: "graph_api"  # Empfohlen!
-```
-
-#### Secrets mit Ansible Vault sichern:
-
-```bash
-# Vault für Secrets erstellen
-ansible-vault create inventory/production/group_vars/all/vault.yml
-
-# Inhalt:
-vault_exchange_client_secret: "your-secret-here"
-vault_admin_password: "SecurePassword2024!"
-```
-
-#### Deployment ausführen:
-
-```bash
-# Test-Verbindung
-ansible -i inventory/production/hosts.yml all -m ping
-
-# Deployment mit Vault Password
+# Deploy
 ansible-playbook -i inventory/production/hosts.yml deploy.yml --ask-vault-pass
-
-# Oder mit Password-File
-echo "your-vault-password" > ~/.vault_pass
-chmod 600 ~/.vault_pass
-ansible-playbook -i inventory/production/hosts.yml deploy.yml --vault-password-file ~/.vault_pass
 ```
 
-#### Nach dem Deployment:
+[Detailed Ansible Guide](ansible/README.md)
+
+### Option 3: Manual Installation
 
 ```bash
-# Bei Device Code Flow - einmalige Authentifizierung
-ssh root@relay1
-cd /opt/smtp-relay
-sudo -u smtp-relay npm run setup:auth
-
-# Service prüfen
-systemctl status smtp-relay
-systemctl status smtp-relay-dashboard
-```
-
-📚 **Detaillierte Ansible-Anleitung:** [ansible/README.md](ansible/README.md)
-
-### 2. Manuelle Installation
-
-#### Schritt 1: Node.js installieren (WICHTIG - zuerst prüfen!)
-
-```bash
-# Prüfen ob Node.js installiert ist
-node --version
-
-# Falls nicht installiert:
-
-# Für RHEL/Rocky/AlmaLinux 8-9:
+# Install Node.js if needed
 curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
 sudo dnf install -y nodejs
 
-# Für RHEL 10 (hat normalerweise Node.js 22 vorinstalliert):
-# Falls nicht vorhanden:
-sudo dnf install nodejs npm
-```
-
-#### Schritt 2: Repository klonen und Dependencies installieren
-
-```bash
-# Repository klonen
+# Clone and install
 git clone https://github.com/SilvioTormen/smtprelay.git
 cd smtprelay
-
-# Dependencies installieren (inkl. Dashboard)
 npm install
 npm install --prefix dashboard
-```
 
-#### Schritt 3: Service-Benutzer und Zielverzeichnis vorbereiten
-
-```bash
-# Service-Benutzer anlegen
+# Create service user
 sudo useradd -r -s /bin/false smtp-relay
 
-# Nach /opt verschieben (aus dem Parent-Verzeichnis!)
+# Move to /opt
 cd ..
 sudo mv smtprelay /opt/smtp-relay
-
-# Berechtigungen setzen
 sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay
 
-# Log-Verzeichnis erstellen
-sudo mkdir -p /var/log/smtp-relay
-sudo chown smtp-relay:smtp-relay /var/log/smtp-relay
-```
-
-#### Schritt 4: Setup im Zielverzeichnis ausführen
-
-```bash
-# WICHTIG: Ins Zielverzeichnis wechseln
+# Setup
 cd /opt/smtp-relay
-
-# Setup als smtp-relay User ausführen (erstellt .env und Verzeichnisse)
-# Hinweis: Firewall-Check wird übersprungen wenn nicht als root
 sudo -u smtp-relay npm run setup
-
-# Optional: Als root für vollständigen Check (inkl. Firewall)
-# sudo npm run setup
-
-# Post-Installation Security Script (erstellt fehlende Verzeichnisse, setzt Berechtigungen)
 sudo ./scripts/post-install.sh
 
-# OAuth2 Setup (optional, interaktiv)
-sudo -u smtp-relay npm run setup:auth
-```
-
-#### Schritt 5: Systemd Service installieren und starten
-
-```bash
-# Service installieren
-sudo cp /opt/smtp-relay/smtp-relay.service /etc/systemd/system/
+# Install service
+sudo cp smtp-relay.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable smtp-relay
-
-# Service starten
-sudo systemctl start smtp-relay
-
-# Status prüfen (sollte "active (running)" zeigen)
-sudo systemctl status smtp-relay
-
-# Bei Problemen Logs prüfen
-sudo journalctl -u smtp-relay -f
+sudo systemctl enable --now smtp-relay
 ```
 
-#### ⚠️ Troubleshooting
+## ⚙️ Configuration
 
-**Service startet nicht - "ENOENT: no such file or directory"**
-```bash
-# Fehlende Verzeichnisse manuell erstellen
-sudo mkdir -p /opt/smtp-relay/{config,logs,queue,certs,.temp}
-sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay
-sudo systemctl restart smtp-relay
-```
+### Azure AD / Exchange Setup
 
-**"Permission denied" Fehler**
-```bash
-# Berechtigungen neu setzen
-sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay
-sudo chmod 755 /opt/smtp-relay
-sudo /opt/smtp-relay/scripts/post-install.sh
-```
-
-**Token-Datei nach OAuth2 sichern**
-```bash
-# Wird automatisch durch post-install.sh gesichert
-# Manuelle Prüfung:
-ls -la /opt/smtp-relay/.tokens.json
-# Sollte zeigen: -rw------- 1 smtp-relay smtp-relay
-```
-
-#### ⚠️ Sicherheitshinweise für OAuth2 Tokens
-
-Nach der OAuth2-Authentifizierung wird ein Refresh Token in `.tokens.json` gespeichert:
-
-- **Automatische Sicherung:** Setup-Script setzt Berechtigungen auf `600`
-- **Manuelle Prüfung:** `ls -la /opt/smtp-relay/.tokens.json`
-- **Backup:** Diese Datei sollte gesichert werden (enthält Authentifizierung)
-- **Git:** Wird automatisch von `.gitignore` ausgeschlossen
-- **Verlust:** Bei Verlust muss OAuth2 Setup erneut durchgeführt werden
-
-#### Port-Berechtigungen
-
-Der Service nutzt standardmäßig Ports > 1024 (2525, 2587, 2465) um Berechtigungsprobleme zu vermeiden.
-
-Für Standard SMTP-Ports (25, 587, 465):
+The new automated setup wizard handles everything:
 
 ```bash
-# Option 1: Capabilities für Node.js setzen (empfohlen)
-sudo setcap 'cap_net_bind_service=+ep' $(which node)
-
-# Option 2: Systemd Capabilities (bereits in Service-Datei konfiguriert)
-# Der Service hat CAP_NET_BIND_SERVICE bereits aktiviert
-
-# Option 3: Port-Forwarding mit iptables
-sudo iptables -t nat -A PREROUTING -p tcp --dport 25 -j REDIRECT --to-port 2525
-sudo iptables -t nat -A PREROUTING -p tcp --dport 587 -j REDIRECT --to-port 2587
-sudo iptables -t nat -A PREROUTING -p tcp --dport 465 -j REDIRECT --to-port 2465
+# Interactive setup wizard
+npm run setup:azure
 ```
 
+Choose from three setup modes:
 
-### 3. Mit PM2 (empfohlen für Entwicklung)
+| Mode | Use Case | Requirements |
+|------|----------|--------------|
+| **Simple** | Basic email relay | Global Admin consent |
+| **Admin** | Full automation | Azure AD Admin credentials |
+| **Manual** | Custom setup | Existing app registration |
 
-```bash
-npm install -g pm2
-pm2 start ecosystem.config.js
-pm2 save
-pm2 startup
-```
+### Authentication Methods
 
-## ⚙️ Konfiguration
+| Method | Best For | Azure Permission | SMTP Auth Required |
+|--------|----------|-----------------|-------------------|
+| **Graph API** ✅ | New installations | `Mail.Send` | No |
+| **SMTP OAuth2** | Legacy compatibility | `SMTP.Send` | Yes |
+| **Hybrid** | Fallback scenarios | Both | Yes |
 
-### 🎯 WICHTIG: Wähle deine Methode!
+[Authentication Methods Guide](docs/AUTH_METHODS_GUIDE.md)
 
-| Methode | Empfehlung | Azure AD Permission | SMTP Auth nötig? |
-|---------|------------|-------------------|------------------|
-| **Graph API** | ✅ **EMPFOHLEN** | `Mail.Send` (Microsoft Graph) | ❌ Nein |
-| **SMTP OAuth2** | ⚠️ Legacy | `SMTP.Send` (Office 365 Exchange) | ✅ Ja |
-| **Hybrid** | 🔄 Fallback | Beide Permissions | ✅ Ja |
-
-**Schnellentscheidung:**
-- **Neue Installation?** → Nutze Graph API! 
-- **SMTP Auth deaktiviert?** → Nutze Graph API!
-- **Legacy-Kompatibilität?** → Nutze Hybrid!
-
-📚 **Detaillierte Anleitung:** [Authentication Methods Guide](docs/AUTH_METHODS_GUIDE.md)
-
-### Exchange Online OAuth2 Setup
-
-#### Schnellstart mit Setup Wizard (Empfohlen)
-
-```bash
-# Interaktiver OAuth2 Setup Wizard
-npm run setup:auth
-```
-
-Der Wizard führt dich durch:
-- Auswahl der Authentifizierungsmethode
-- Azure AD Konfiguration
-- Automatische Token-Generierung
-
-#### Verfügbare OAuth2 Methoden
-
-**1. Device Code Flow** (Empfohlen für Server)
-```yaml
-exchange_online:
-  auth:
-    method: "device_code"
-    tenant_id: "your-tenant-id"  # oder "common"
-    client_id: "your-client-id"
-```
-
-**2. Client Credentials** (Für Automatisierung)
-```yaml
-exchange_online:
-  auth:
-    method: "client_credentials"
-    tenant_id: "your-tenant-id"
-    client_id: "your-client-id"  
-    client_secret: "your-secret"
-    send_as: "relay@domain.com"
-```
-
-**3. Authorization Code** (Für Web Dashboard)
-```yaml
-exchange_online:
-  auth:
-    method: "authorization_code"
-    tenant_id: "your-tenant-id"
-    client_id: "your-client-id"
-    redirect_uri: "http://localhost:3001/api/auth/callback"
-```
-
-Detaillierte Anleitung: [OAuth2 Setup Guide](docs/OAUTH2_SETUP.md)
-
-### Legacy Geräte konfigurieren
+### Legacy Device Configuration
 
 ```yaml
-# IP-Whitelist für Geräte ohne Auth
+# IP whitelist for no-auth devices
 ip_whitelist:
   no_auth_required:
-    - "192.168.1.0/24"  # Drucker VLAN
+    - "192.168.1.0/24"  # Printer VLAN
     
-# Statische User für Geräte mit Auth
+# Static users for legacy auth
 legacy_auth:
   static_users:
     - username: "scanner"
-      password: "CHANGE_THIS_USE_STRONG_PASSWORD"  # Min. 16 Zeichen!
+      password: "SecurePassword2024!"
       allowed_ips: ["192.168.1.0/24"]
 ```
 
-## 🔍 Monitoring & Management
+## 🔍 Management & Monitoring
 
 ### Web Dashboard
-- **URL**: `http://server:3001` (Development) oder `https://server` (Production mit Reverse Proxy)
+- **URL**: `https://your-server` (production) or `http://server:3001` (development)
 - **Features**: 
-  - Real-time Statistiken
-  - Device Management
-  - Queue Monitoring
-  - Multi-Factor Authentication (TOTP + FIDO2/YubiKey)
+  - Real-time statistics
+  - Device management
+  - Queue monitoring
+  - Exchange setup wizard
+  - IP whitelist management
+  - Security event tracking
 
-### System Monitoring
-- **Status Overview**: `npm run status` (shows all endpoints & availability)
-- Health Check: `http://server:3001/api/health`
-- Logs: `/var/log/smtp-relay/`
-- PM2 Status: `pm2 status`
-- Security Check: `npm run security:check`
+### CLI Management
+```bash
+# Service status with all endpoints
+npm run status
 
-## 📝 Typische Legacy-Geräte
+# Security check
+npm run security:check
 
-| Gerät | Port | Auth | TLS |
-|-------|------|------|-----|
-| Alte Drucker | 25 | Nein | Nein |
-| Moderne Drucker | 587 | Optional | STARTTLS |
-| NAS Systeme | 587 | Ja | STARTTLS |
-| Monitoring Tools | 25 | Nein | Optional |
-| Security Kameras | 587 | Ja | STARTTLS |
+# View logs
+tail -f /var/log/smtp-relay/relay.log
+
+# Monitor failed authentications
+grep "LOGIN_FAILED" logs/auth-failures.log
+```
+
+## 📊 Typical Device Configurations
+
+| Device Type | Port | Auth | TLS |
+|------------|------|------|-----|
+| Old Printers | 25 | No | No |
+| Modern Printers | 587 | Optional | STARTTLS |
+| NAS Systems | 587 | Yes | STARTTLS |
+| Monitoring Tools | 25 | No | Optional |
+| Security Cameras | 587 | Yes | STARTTLS |
+| IoT Devices | 25 | No | Optional |
 
 ## 🛠️ Troubleshooting
 
-### Service Status prüfen
+### Common Issues
 
+**Device cannot send emails**
 ```bash
-# Vollständige Status-Übersicht mit allen Endpoints
-npm run status
+# Check IP whitelist
+cat config/config.yml | grep -A5 ip_whitelist
 
-# Zeigt:
-# - Service Status (läuft/gestoppt)
-# - Alle SMTP Endpoints (Port 25, 587, 465)
-# - Dashboard URL
-# - Firewall Status
-# - OAuth2 Token Status
-# - Automatische Connectivity Tests
+# Verify firewall
+sudo firewall-cmd --list-all
+
+# Check logs
+tail -f /var/log/smtp-relay/relay.log
 ```
 
-### Gerät kann nicht senden
-
-1. IP in Whitelist? Check: `config.yml`
-2. Firewall offen? Check: `npm run status` oder `sudo firewall-cmd --list-all`
-3. Logs prüfen: `tail -f /var/log/smtp-relay/relay.log`
-
-### Exchange Authentifizierung fehlgeschlagen
-
-1. Setup Wizard erneut ausführen: `npm run setup:auth`
-2. Token-Status prüfen: `cat .tokens.json`
-3. Azure AD Permissions checken:
-   - Device Code: `Mail.Send`, `SMTP.Send`, `offline_access`
-   - Client Credentials: `Mail.Send` (Application)
-4. Tokens löschen und neu authentifizieren:
-   ```bash
-   rm .tokens.json
-   npm run setup:auth
-   ```
-
-## 🔒 Security Features (10/10 Enterprise Grade)
-
-### 🛡️ Authentication & Authorization
-- **Multi-Factor Authentication (MFA)**
-  - TOTP Support (Google Authenticator, Microsoft Authenticator)
-  - Backup Codes für Notfallzugriff
-  - MFA Enforcement bei verdächtigen Aktivitäten
-- **OAuth2 Modern Authentication**
-  - Device Code Flow für Server
-  - Client Credentials für Automatisierung
-  - Authorization Code für Web-Anwendungen
-  - Automatisches Token Refresh
-- **httpOnly Cookie Authentication**
-  - JWT Tokens in sicheren httpOnly Cookies
-  - Kein localStorage - XSS-Schutz
-  - Automatic CSRF Protection
-
-### 🔐 Advanced Token Security
-- **Refresh Token Rotation**
-  - Neue Tokens bei jedem Refresh
-  - Token-Familie Tracking
-  - Replay Attack Detection - Automatische Invalidierung bei Missbrauch
-  - JTI (JWT ID) für eindeutige Token-Identifikation
-- **Token Blacklisting**
-  - Redis-basierte Blacklist
-  - Sofortige Token-Invalidierung bei Logout
-  - Persistente Speicherung
-
-### 🕵️ Anomaly Detection & Device Security
-- **Device Fingerprinting**
-  - Browser & OS Detection
-  - IP-basiertes Fingerprinting
-  - Trust Score Berechnung (0.0-1.0)
-  - Automatische Re-Authentication bei Device-Wechsel
-- **Advanced Anomaly Detection**
-  - **Impossible Travel Detection**: Login von Berlin und 5 Min später von Tokyo? Blockiert!
-  - **Brute Force Detection**: Erkennung automatisierter Angriffe
-  - **VPN/Proxy/Tor Detection**: Verdächtige Verbindungen werden erkannt
-  - **Unusual Time Detection**: Login um 3 Uhr morgens?
-  - **Risk-Based Authentication**: Automatische MFA bei hohem Risiko
-
-### 🚪 Access Control
-- **IP Whitelist Management**
-  - Separate Listen für SMTP Relay und Dashboard
-  - CIDR Notation Support (192.168.0.0/24)
-  - Blacklist für komplett blockierte IPs
-  - Web-basierte Verwaltung mit Audit Trail
-- **Exponential Backoff Lockout**
-  - 3 Versuche: 1 Minute Sperre
-  - 4 Versuche: 5 Minuten
-  - 5 Versuche: 15 Minuten
-  - 6 Versuche: 1 Stunde
-  - 7+ Versuche: 24 Stunden
-- **Rate Limiting**
-  - Per-IP und Per-User Limits
-  - DDoS Protection
-  - API Endpoint Protection
-
-### 📱 Session Management
-- **Multi-Device Session Control**
-  - Alle aktiven Sessions anzeigen
-  - Remote Session Revocation
-  - "Logout Everywhere Else" Feature
-  - Device & Location Tracking
-- **Session Security**
-  - Redis-basierte Session Storage
-  - Session Timeout Management
-  - Concurrent Session Limits
-  - Session Activity Monitoring
-
-### 🔍 Security Headers & Policies
-- **Comprehensive Security Headers**
-  - Content Security Policy (CSP)
-  - HTTP Strict Transport Security (HSTS) mit Preload
-  - X-Frame-Options: DENY (Clickjacking Protection)
-  - X-Content-Type-Options: nosniff
-  - Permissions Policy (Kamera, Mikrofon, etc. blockiert)
-  - Expect-CT Enforcement
-  - Cache-Control: no-store
-- **CORS Protection**
-  - Strict Origin Policy
-  - Credentials Support mit Whitelisting
-- **CSRF Protection**
-  - Double-Submit Cookie Pattern
-  - Token Validation
-  - SameSite Cookie Attribute
-
-### 📊 Monitoring & Auditing
-- **Comprehensive Audit Logging**
-  - Alle Security Events
-  - Login/Logout Tracking
-  - Configuration Changes
-  - Failed Authentication Attempts
-  - IP Whitelist Änderungen
-- **Security Event Dashboard**
-  - Real-time Security Alerts
-  - Suspicious Activity Timeline
-  - Failed Login Attempts
-  - Geographic Login Map
-
-### 🔧 Infrastructure Security
-- **Secure File Operations**
-  - Atomic File Writes
-  - File Locking gegen Race Conditions
-  - Path Traversal Protection
-  - Symlink Detection
-- **Input Validation**
-  - Strict Type Checking
-  - SQL Injection Protection
-  - Command Injection Protection
-  - XSS Prevention
-  - Length Limits
-- **Cryptographic Security**
-  - Timing-Safe Comparisons
-  - Secure Random Generation
-  - Strong Password Hashing (bcrypt)
-  - SHA-256 für Fingerprints
-
-### 🏆 Security Score Breakdown
-
-| Security Feature | Status | Score |
-|-----------------|--------|-------|
-| httpOnly Cookies | ✅ | 1.5/1.5 |
-| CSRF Protection | ✅ | 1.0/1.0 |
-| Token Rotation | ✅ | 0.5/0.5 |
-| Device Fingerprinting | ✅ | 0.5/0.5 |
-| Anomaly Detection | ✅ | 0.5/0.5 |
-| Rate Limiting | ✅ | 0.5/0.5 |
-| MFA + Backup Codes | ✅ | 1.0/1.0 |
-| IP Whitelisting | ✅ | 0.5/0.5 |
-| Session Management | ✅ | 0.5/0.5 |
-| Security Headers | ✅ | 1.0/1.0 |
-| Audit Logging | ✅ | 0.5/0.5 |
-| Input Validation | ✅ | 0.5/0.5 |
-| Exponential Backoff | ✅ | 0.5/0.5 |
-| Redis Sessions | ✅ | 0.5/0.5 |
-| VPN/Tor Detection | ✅ | 0.5/0.5 |
-| **TOTAL** | **100%** | **10.0/10** |
-
-### 🚀 Security Commands
-
+**Exchange authentication failed**
 ```bash
-# Generate secure secrets for production
-npm run security:generate
+# Re-run setup wizard
+npm run setup:azure
 
-# Check for vulnerabilities
-npm run security:check
+# Check token status
+cat .tokens.json | jq .expires_at
 
-# View security audit log
-tail -f logs/security-audit.log
-
-# Test security headers
-npm run test:security-headers
-
-# Monitor failed login attempts
-grep "LOGIN_FAILED" logs/auth-failures.log | tail -20
+# Reset authentication
+rm .tokens.json
+npm run setup:auth
 ```
 
-## 📄 Lizenz
+**Service won't start**
+```bash
+# Check permissions
+sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay
 
-MIT - Siehe [LICENSE](LICENSE)
+# Verify directories
+sudo /opt/smtp-relay/scripts/post-install.sh
+
+# Check service logs
+sudo journalctl -u smtp-relay -f
+```
+
+## 🔒 Security Features
+
+### Authentication & Authorization
+- Multi-Factor Authentication (TOTP + FIDO2)
+- OAuth2 modern authentication
+- httpOnly cookie authentication
+- JWT tokens with refresh rotation
+
+### Advanced Security
+- Device fingerprinting
+- Anomaly detection (impossible travel, unusual time)
+- VPN/Proxy/Tor detection
+- Exponential backoff lockout
+- Rate limiting per IP/user
+
+### Infrastructure Security
+- Comprehensive security headers (CSP, HSTS, etc.)
+- CSRF protection
+- Input validation and sanitization
+- Secure file operations
+- Audit logging
+
+[Security Documentation](SECURITY.md)
+
+## 📚 Documentation
+
+- [Azure Auto Setup Guide](docs/AZURE_AUTO_SETUP.md) - Automated Azure configuration
+- [OAuth2 Setup Guide](docs/OAUTH2_SETUP.md) - OAuth2 authentication setup
+- [MFA Setup Guide](docs/MFA_SETUP.md) - Multi-factor authentication
+- [TLS Management](docs/TLS_MANAGEMENT.md) - Certificate configuration
+- [Ansible Deployment](ansible/README.md) - Production deployment
 
 ## 🤝 Contributing
 
-Siehe [CONTRIBUTING.md](CONTRIBUTING.md)
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+
+## 📄 License
+
+MIT - See [LICENSE](LICENSE)
+
+## 🆘 Support
+
+- Issues: [GitHub Issues](https://github.com/SilvioTormen/smtprelay/issues)
+- Security: See [SECURITY.md](SECURITY.md)
