@@ -4,7 +4,10 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 0.1.x   | :white_check_mark: |
+| 2.0.x   | :white_check_mark: |
+| 1.5.x   | :white_check_mark: |
+| 1.0.x   | :x: |
+| < 1.0   | :x: |
 
 ## Reporting a Vulnerability
 
@@ -15,8 +18,8 @@ We take the security of SMTP Relay seriously. If you have discovered a security 
 **DO NOT** report security vulnerabilities through public GitHub issues.
 
 Instead, please report them via:
-- Email: security@[yourdomain.com]
 - GitHub Security Advisories: [Create a security advisory](https://github.com/SilvioTormen/smtprelay/security/advisories/new)
+- Alternative: Open a private issue with security label
 
 ### What to Include
 
