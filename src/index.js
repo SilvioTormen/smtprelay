@@ -53,7 +53,8 @@ const statsCollector = {
 // Create SMTP servers for each listener
 const servers = [];
 
-config.smtp.listeners.forEach(listener => {
+const listeners = config.smtp_listeners || [];
+listeners.forEach(listener => {
   logger.info(`Setting up SMTP listener: ${listener.name} on port ${listener.port}`);
   
   const serverOptions = {

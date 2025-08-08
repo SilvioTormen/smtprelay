@@ -250,6 +250,23 @@ router.post('/refresh', async (req, res) => {
   }
 });
 
+// Get CSRF token
+router.get('/csrf-token', (req, res) => {
+  // Generate a new CSRF token for this session
+  const crypto = require('crypto');
+  const token = crypto.randomBytes(32).toString('hex');
+  
+  // Store in session
+  if (req.session) {
+    req.session.csrfToken = token;
+    req.session._csrf = token; // Fallback for compatibility
+  }
+  
+  res.json({ 
+    csrfToken: token
+  });
+});
+
 // Get current user info
 router.get('/me', authenticate, (req, res) => {
   if (!req.user) {

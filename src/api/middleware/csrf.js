@@ -70,7 +70,14 @@ const verifyCSRFToken = (req, res, next) => {
     });
   }
   
-  // Verify token exists and is bound to session
+  // First check if token matches session token
+  const sessionToken = req.session?.csrfToken || req.session?._csrf;
+  if (sessionToken && token === sessionToken) {
+    // Token matches session - valid
+    return next();
+  }
+  
+  // Otherwise check token map
   const tokenData = csrfTokens.get(token);
   
   if (!tokenData) {

@@ -18,6 +18,7 @@ import Sessions from './pages/Sessions';
 import Analytics from './pages/Analytics-MUI';
 import UserManagement from './pages/UserManagement';
 import Profile from './pages/Profile';
+import ExchangeSetup from './pages/ExchangeSetup';
 
 // Contexts
 import { AuthProvider } from './contexts/AuthContext-Debug'; // Use debug version
@@ -199,6 +200,7 @@ function App() {
                       <Route path="analytics" element={<Analytics />} />
                       <Route path="users" element={<UserManagement />} />
                       <Route path="profile" element={<Profile />} />
+                      <Route path="exchange-setup" element={<ExchangeSetup />} />
                     </Route>
                   </Routes>
                 </AnimatePresence>
