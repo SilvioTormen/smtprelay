@@ -33,7 +33,6 @@ import {
   ListItemIcon,
   ListItemSecondaryAction,
   Divider,
-  Container,
   InputAdornment,
   Badge,
   Table,
@@ -41,13 +40,18 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  Fade,
+  Grow,
+  Collapse,
+  useTheme
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext-Debug';
 import SimpleAzureSetup from '../components/SimpleAzureSetup';
 import ManualAzureSetup from '../components/ManualAzureSetup';
 import AzureAdminSetup from '../components/AzureAdminSetup';
 import ExchangeStatusDashboard from '../components/ExchangeStatusDashboard';
+import { motion } from 'framer-motion';
 import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
@@ -71,13 +75,26 @@ import {
   History as HistoryIcon,
   Build as BuildIcon,
   AdminPanelSettings as AdminIcon,
-  Send as SendIcon
+  Send as SendIcon,
+  AutoAwesome as AutoAwesomeIcon,
+  RocketLaunch as RocketIcon,
+  Shield as ShieldIcon,
+  Bolt as BoltIcon,
+  SyncAlt as SyncIcon,
+  CloudSync as CloudSyncIcon,
+  MailOutline as MailIcon,
+  Groups as GroupsIcon,
+  TrendingUp as TrendingUpIcon
 } from '@mui/icons-material';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
+const MotionCard = motion(Card);
+const MotionBox = motion(Box);
+
 const ExchangeSetup = () => {
   const { apiRequest } = useAuth();
+  const theme = useTheme();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState(null);
@@ -371,18 +388,43 @@ const ExchangeSetup = () => {
 
   if (loading && !status) {
     return (
-      <Container maxWidth="lg">
-        <Box display="flex" justifyContent="center" alignItems="center" height="400px">
-          <CircularProgress />
-        </Box>
-      </Container>
+      <Box sx={{ 
+        minHeight: '100vh',
+        background: theme.palette.mode === 'dark' 
+          ? 'linear-gradient(135deg, #1a1a2e 0%, #0f0f23 100%)'
+          : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center'
+      }}>
+        <MotionBox
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+        >
+          <Paper sx={{ p: 4, borderRadius: 4, boxShadow: 6 }}>
+            <Box display="flex" flexDirection="column" alignItems="center">
+              <CircularProgress size={60} thickness={4} />
+              <Typography variant="h6" sx={{ mt: 2 }}>
+                Loading Exchange Configuration...
+              </Typography>
+            </Box>
+          </Paper>
+        </MotionBox>
+      </Box>
     );
   }
 
   // Main Status Overview - Show when configured or when setup is complete
   if ((status?.isConfigured || status?.applications?.length > 0) && !showSetupWizard) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 3 }}>
+      <Box sx={{ 
+        minHeight: '100vh',
+        background: theme.palette.mode === 'dark'
+          ? theme.palette.background.default
+          : 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+        py: 4
+      }}>
         <ExchangeStatusDashboard 
           key={dashboardKey}
           onSetupStart={() => setShowSetupWizard(true)}
@@ -409,8 +451,16 @@ const ExchangeSetup = () => {
           }}
           maxWidth="sm"
           fullWidth
+          PaperProps={{
+            sx: { borderRadius: 3 }
+          }}
         >
-          <DialogTitle>Add User Mailbox</DialogTitle>
+          <DialogTitle>
+            <Box display="flex" alignItems="center" gap={1}>
+              <MailIcon color="primary" />
+              <Typography variant="h6">Add User Mailbox</Typography>
+            </Box>
+          </DialogTitle>
           <DialogContent>
             {deviceCodeInfo ? (
               <>
@@ -418,9 +468,20 @@ const ExchangeSetup = () => {
                   Authenticate the user account that will send emails:
                 </Typography>
                 
-                <Card sx={{ mt: 2, bgcolor: 'primary.main', color: 'primary.contrastText' }}>
+                <MotionCard
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  sx={{ 
+                    mt: 2, 
+                    background: theme.palette.mode === 'dark'
+                      ? 'linear-gradient(135deg, #4c63b6 0%, #542f75 100%)'
+                      : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                    color: 'white'
+                  }}
+                >
                   <CardContent>
-                    <Typography variant="h3" align="center" gutterBottom>
+                    <Typography variant="h2" align="center" gutterBottom sx={{ fontWeight: 'bold', letterSpacing: 3 }}>
                       {deviceCodeInfo.userCode}
                     </Typography>
                     <Box display="flex" justifyContent="center" mt={2}>
@@ -429,15 +490,20 @@ const ExchangeSetup = () => {
                         color="secondary"
                         startIcon={<CopyIcon />}
                         onClick={() => copyToClipboard(deviceCodeInfo.userCode)}
+                        sx={{ 
+                          borderRadius: 3,
+                          textTransform: 'none',
+                          fontWeight: 'bold'
+                        }}
                       >
                         Copy Code
                       </Button>
                     </Box>
                   </CardContent>
-                </Card>
+                </MotionCard>
                 
                 <Box mt={3} textAlign="center">
-                  <Typography variant="body2" gutterBottom>
+                  <Typography variant="body2" gutterBottom color="textSecondary">
                     Go to this URL and enter the code:
                   </Typography>
                   <Button
@@ -445,25 +511,42 @@ const ExchangeSetup = () => {
                     startIcon={<LinkIcon />}
                     href={deviceCodeInfo.verificationUrl || 'https://microsoft.com/devicelogin'}
                     target="_blank"
-                    sx={{ mt: 1 }}
+                    sx={{ 
+                      mt: 1,
+                      borderRadius: 3,
+                      textTransform: 'none'
+                    }}
                   >
                     microsoft.com/devicelogin
                   </Button>
                 </Box>
                 
                 {polling && (
-                  <Box mt={3} display="flex" alignItems="center" justifyContent="center">
-                    <CircularProgress size={20} sx={{ mr: 2 }} />
-                    <Typography>Waiting for user authentication...</Typography>
-                  </Box>
+                  <Fade in={polling}>
+                    <Box mt={3} display="flex" alignItems="center" justifyContent="center">
+                      <CircularProgress size={20} sx={{ mr: 2 }} />
+                      <Typography>Waiting for user authentication...</Typography>
+                    </Box>
+                  </Fade>
                 )}
                 
-                <Alert severity="info" sx={{ mt: 3 }}>
+                <Alert severity="info" sx={{ mt: 3, borderRadius: 2 }}>
                   <AlertTitle>Important</AlertTitle>
                   The user must:
-                  • Sign in with their Exchange account
-                  • Accept the Mail.Send permission
-                  • This grants the app permission to send emails as this user
+                  <List dense>
+                    <ListItem>
+                      <ListItemIcon><CheckCircleIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText primary="Sign in with their Exchange account" />
+                    </ListItem>
+                    <ListItem>
+                      <ListItemIcon><CheckCircleIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText primary="Accept the Mail.Send permission" />
+                    </ListItem>
+                    <ListItem>
+                      <ListItemIcon><CheckCircleIcon fontSize="small" /></ListItemIcon>
+                      <ListItemText primary="Grant permission to send emails as this user" />
+                    </ListItem>
+                  </List>
                 </Alert>
               </>
             ) : (
@@ -472,387 +555,20 @@ const ExchangeSetup = () => {
               </Box>
             )}
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => {
-              setShowUserAuthDialog(false);
-              setPolling(false);
-              setDeviceCodeInfo(null);
-            }}>
+          <DialogActions sx={{ p: 3 }}>
+            <Button 
+              onClick={() => {
+                setShowUserAuthDialog(false);
+                setPolling(false);
+                setDeviceCodeInfo(null);
+              }}
+              sx={{ borderRadius: 2 }}
+            >
               Cancel
             </Button>
           </DialogActions>
         </Dialog>
-      </Container>
-    );
-  }
-  
-  // Legacy status display - keeping for reference
-  if (false && status?.isConfigured && !showSetupWizard) {
-    return (
-      <Container maxWidth="lg">
-        <Paper sx={{ p: 4, mt: 3 }}>
-          {/* Header with Status */}
-          <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
-            <Box display="flex" alignItems="center">
-              <CheckCircleIcon color="success" sx={{ fontSize: 48, mr: 2 }} />
-              <Box>
-                <Typography variant="h4" fontWeight="bold">
-                  Exchange Online Configuration
-                </Typography>
-                <Typography variant="body1" color="textSecondary">
-                  System is configured and ready • Last checked: {new Date().toLocaleTimeString()}
-                </Typography>
-              </Box>
-            </Box>
-            <Box>
-              <Button
-                startIcon={<RefreshIcon />}
-                onClick={checkStatus}
-                sx={{ mr: 1 }}
-              >
-                Refresh
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<BuildIcon />}
-                onClick={() => setShowSetupWizard(true)}
-              >
-                Reconfigure
-              </Button>
-            </Box>
-          </Box>
-
-          {/* Configuration Overview Cards */}
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            <Grid item xs={12} md={4}>
-              <Card elevation={2}>
-                <CardContent>
-                  <Box display="flex" alignItems="center" mb={2}>
-                    <CloudIcon color="primary" sx={{ fontSize: 32, mr: 2 }} />
-                    <Typography variant="h6">Azure AD Application</Typography>
-                  </Box>
-                  <Divider sx={{ mb: 2 }} />
-                  <List dense>
-                    <ListItem>
-                      <ListItemText 
-                        primary="Tenant ID" 
-                        secondary={
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                            {status.tenantId || 'Not configured'}
-                          </Typography>
-                        }
-                      />
-                    </ListItem>
-                    <ListItem>
-                      <ListItemText 
-                        primary="Client ID" 
-                        secondary={
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                            {status.clientId || 'Not configured'}
-                          </Typography>
-                        }
-                      />
-                    </ListItem>
-                    <ListItem>
-                      <ListItemText 
-                        primary="Authentication" 
-                        secondary={
-                          <Chip 
-                            label={status.authMethod === 'device_code' ? 'Device Code Flow' : 'Client Credentials'}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                          />
-                        }
-                      />
-                    </ListItem>
-                  </List>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <Card elevation={2}>
-                <CardContent>
-                  <Box display="flex" alignItems="center" mb={2}>
-                    <EmailIcon color="primary" sx={{ fontSize: 32, mr: 2 }} />
-                    <Typography variant="h6">Email Configuration</Typography>
-                  </Box>
-                  <Divider sx={{ mb: 2 }} />
-                  <List dense>
-                    <ListItem>
-                      <ListItemText 
-                        primary="API Method" 
-                        secondary={
-                          <Chip 
-                            label={status.apiMethod === 'graph_api' ? 'Microsoft Graph' : 'SMTP OAuth'}
-                            size="small"
-                            color="secondary"
-                            variant="outlined"
-                          />
-                        }
-                      />
-                    </ListItem>
-                    <ListItem>
-                      <ListItemText 
-                        primary="SMTP Server" 
-                        secondary="smtp.office365.com:587"
-                      />
-                    </ListItem>
-                    <ListItem>
-                      <ListItemText 
-                        primary="Security" 
-                        secondary="STARTTLS / OAuth 2.0"
-                      />
-                    </ListItem>
-                  </List>
-                </CardContent>
-              </Card>
-            </Grid>
-            
-            <Grid item xs={12} md={4}>
-              <Card elevation={2}>
-                <CardContent>
-                  <Box display="flex" alignItems="center" mb={2}>
-                    <AccountIcon color="primary" sx={{ fontSize: 32, mr: 2 }} />
-                    <Typography variant="h6">Authentication Status</Typography>
-                  </Box>
-                  <Divider sx={{ mb: 2 }} />
-                  <List dense>
-                    <ListItem>
-                      <ListItemText 
-                        primary="Active Accounts" 
-                        secondary={
-                          <Box display="flex" alignItems="center" gap={1}>
-                            <Typography variant="body2">
-                              {accounts.filter(a => a.hasValidToken).length} of {accounts.length} authenticated
-                            </Typography>
-                            {accounts.filter(a => a.hasValidToken).length === accounts.length && accounts.length > 0 && (
-                              <CheckCircleIcon color="success" fontSize="small" />
-                            )}
-                          </Box>
-                        }
-                      />
-                    </ListItem>
-                    <ListItem>
-                      <ListItemText 
-                        primary="Default Account" 
-                        secondary={status.defaultAccount || 'None selected'}
-                      />
-                    </ListItem>
-                    <ListItem>
-                      <ListItemText 
-                        primary="Token Status" 
-                        secondary={
-                          accounts.some(a => a.hasValidToken) 
-                            ? `Valid until ${new Date(accounts.find(a => a.hasValidToken)?.tokenExpiresAt).toLocaleDateString()}`
-                            : 'No valid tokens'
-                        }
-                      />
-                    </ListItem>
-                  </List>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
-          {/* Quick Actions */}
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h6" gutterBottom>Quick Actions</Typography>
-            <Grid container spacing={2}>
-              <Grid item>
-                <Button
-                  variant="contained"
-                  startIcon={<SendIcon />}
-                  onClick={() => testConnection(status.defaultAccount)}
-                  disabled={!status.defaultAccount || !accounts.some(a => a.hasValidToken)}
-                >
-                  Test Email Send
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={() => {
-                    setShowSetupWizard(true);
-                    setActiveStep(2);
-                  }}
-                >
-                  Add Account
-                </Button>
-              </Grid>
-              <Grid item>
-                <Button
-                  variant="outlined"
-                  startIcon={<RefreshIcon />}
-                  onClick={() => refreshAccountTokens(status.defaultAccount)}
-                  disabled={!status.defaultAccount}
-                >
-                  Refresh Tokens
-                </Button>
-              </Grid>
-            </Grid>
-          </Box>
-
-          <Divider sx={{ my: 3 }} />
-
-          {/* Authenticated Accounts Table */}
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Authenticated Accounts
-            </Typography>
-            
-            {accounts.length === 0 ? (
-              <Alert severity="warning">
-                <AlertTitle>No Accounts Configured</AlertTitle>
-                Please add at least one account to start sending emails.
-                <Button size="small" sx={{ mt: 1 }} onClick={() => {
-                  setShowSetupWizard(true);
-                  setActiveStep(2);
-                }}>
-                  Add Account Now
-                </Button>
-              </Alert>
-            ) : (
-              <TableContainer component={Paper} variant="outlined">
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Account</TableCell>
-                      <TableCell>Status</TableCell>
-                      <TableCell>Token Expiry</TableCell>
-                      <TableCell>Last Used</TableCell>
-                      <TableCell align="right">Actions</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {accounts.map((account) => (
-                      <TableRow key={account.id}>
-                        <TableCell>
-                          <Box display="flex" alignItems="center">
-                            {account.isDefault && (
-                              <Tooltip title="Default Account">
-                                <StarIcon color="primary" sx={{ mr: 1 }} />
-                              </Tooltip>
-                            )}
-                            <Box>
-                              <Typography variant="body1">
-                                {account.displayName || account.email || 'Unknown'}
-                              </Typography>
-                              {account.email && (
-                                <Typography variant="caption" color="textSecondary">
-                                  {account.email}
-                                </Typography>
-                              )}
-                            </Box>
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          {account.hasValidToken ? (
-                            <Chip
-                              label="Active"
-                              color="success"
-                              size="small"
-                              icon={<CheckCircleIcon />}
-                            />
-                          ) : (
-                            <Chip
-                              label="Expired"
-                              color="warning"
-                              size="small"
-                              icon={<WarningIcon />}
-                            />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Box>
-                            <Typography variant="body2">
-                              {getTimeUntilExpiry(account.tokenExpiresAt)}
-                            </Typography>
-                            <Typography variant="caption" color="textSecondary">
-                              {formatDate(account.tokenExpiresAt)}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell>
-                          <Typography variant="caption">
-                            {formatDate(account.lastUsed)}
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right">
-                          <Tooltip title="Test Connection">
-                            <IconButton
-                              size="small"
-                              onClick={() => testConnection(account.id)}
-                              disabled={!account.hasValidToken}
-                            >
-                              <CloudIcon />
-                            </IconButton>
-                          </Tooltip>
-                          {!account.hasValidToken && (
-                            <Tooltip title="Refresh Token">
-                              <IconButton
-                                size="small"
-                                onClick={() => refreshAccountTokens(account.id)}
-                              >
-                                <RefreshIcon />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          {!account.isDefault && (
-                            <Tooltip title="Set as Default">
-                              <IconButton
-                                size="small"
-                                onClick={() => setDefaultAccount(account.id)}
-                              >
-                                <StarBorderIcon />
-                              </IconButton>
-                            </Tooltip>
-                          )}
-                          <Tooltip title="Delete">
-                            <IconButton
-                              size="small"
-                              onClick={() => deleteAccount(account.id)}
-                              disabled={account.isDefault}
-                            >
-                              <DeleteIcon />
-                            </IconButton>
-                          </Tooltip>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            )}
-          </Box>
-
-          {/* Test Result */}
-          {testResult && (
-            <Alert 
-              severity={testResult.success ? 'success' : 'error'} 
-              sx={{ mt: 3 }}
-              onClose={() => setTestResult(null)}
-            >
-              <AlertTitle>{testResult.success ? 'Test Successful' : 'Test Failed'}</AlertTitle>
-              {testResult.message || testResult.error}
-            </Alert>
-          )}
-
-          {/* Error/Success Messages */}
-          {error && (
-            <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
-              {error}
-            </Alert>
-          )}
-          {success && (
-            <Alert severity="success" sx={{ mt: 2 }} onClose={() => setSuccess(null)}>
-              {success}
-            </Alert>
-          )}
-        </Paper>
-      </Container>
+      </Box>
     );
   }
 
@@ -861,118 +577,230 @@ const ExchangeSetup = () => {
     switch (step) {
       case 0:
         return (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              {status?.isConfigured ? 'Reconfigure Exchange Online' : 'Setup Exchange Online'}
-            </Typography>
-            
-            {status?.isConfigured && (
-              <Alert severity="info" sx={{ mb: 3 }}>
-                <AlertTitle>Current Configuration</AlertTitle>
-                You have an existing configuration. Creating a new app will replace the current one.
-                <Button 
-                  size="small" 
-                  sx={{ mt: 1 }}
-                  onClick={() => setShowSetupWizard(false)}
+          <Fade in={true}>
+            <Box>
+              <Box textAlign="center" mb={4}>
+                <motion.div
+                  initial={{ y: -20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ duration: 0.5 }}
                 >
-                  Back to Status
-                </Button>
-              </Alert>
-            )}
-            
-            <Typography variant="subtitle1" gutterBottom sx={{ mt: 2 }}>
-              Choose Setup Method:
-            </Typography>
-            
-            <Grid container spacing={3} sx={{ mt: 1 }}>
-              <Grid item xs={12} md={6}>
-                <Card 
-                  sx={{ 
-                    cursor: 'pointer', 
-                    border: setupMode === 'automatic' ? '2px solid' : '1px solid',
-                    borderColor: setupMode === 'automatic' ? 'primary.main' : 'divider',
-                    '&:hover': { borderColor: 'primary.main' }
-                  }}
-                  onClick={() => setSetupMode('automatic')}
-                >
-                  <CardContent>
-                    <Box display="flex" alignItems="center" mb={2}>
-                      <AdminIcon color="primary" sx={{ mr: 2, fontSize: 40 }} />
-                      <Typography variant="h5">
-                        Automatic Setup
+                  <CloudSyncIcon sx={{ fontSize: 64, color: 'primary.main', mb: 2 }} />
+                  <Typography variant="h4" gutterBottom fontWeight="bold">
+                    {status?.isConfigured ? 'Reconfigure Exchange Online' : 'Welcome to Exchange Online Setup'}
+                  </Typography>
+                  <Typography variant="subtitle1" color="textSecondary">
+                    Connect your Microsoft Exchange to enable email functionality
+                  </Typography>
+                </motion.div>
+              </Box>
+              
+              {status?.isConfigured && (
+                <Grow in={true}>
+                  <Alert severity="info" sx={{ mb: 3, borderRadius: 2 }}>
+                    <AlertTitle>Current Configuration</AlertTitle>
+                    You have an existing configuration. Creating a new app will replace the current one.
+                    <Button 
+                      size="small" 
+                      sx={{ mt: 1 }}
+                      onClick={() => setShowSetupWizard(false)}
+                    >
+                      Back to Status
+                    </Button>
+                  </Alert>
+                </Grow>
+              )}
+              
+              <Typography variant="h6" gutterBottom sx={{ mt: 3, mb: 2, fontWeight: 'medium' }}>
+                Choose Your Setup Method:
+              </Typography>
+              
+              <Grid container spacing={3}>
+                <Grid item xs={12} md={6}>
+                  <MotionCard
+                    whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+                    whileTap={{ scale: 0.98 }}
+                    sx={{ 
+                      cursor: 'pointer', 
+                      border: setupMode === 'automatic' ? '2px solid' : '1px solid',
+                      borderColor: setupMode === 'automatic' ? 'primary.main' : 'divider',
+                      borderRadius: 3,
+                      overflow: 'hidden',
+                      position: 'relative',
+                      background: setupMode === 'automatic' 
+                        ? theme.palette.mode === 'dark'
+                          ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)'
+                          : 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)'
+                        : 'transparent'
+                    }}
+                    onClick={() => setSetupMode('automatic')}
+                  >
+                    <CardContent sx={{ p: 3 }}>
+                      <Box display="flex" alignItems="center" mb={2}>
+                        <Box sx={{ 
+                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                          borderRadius: 2,
+                          p: 1,
+                          mr: 2,
+                          display: 'flex'
+                        }}>
+                          <AutoAwesomeIcon sx={{ fontSize: 32, color: 'white' }} />
+                        </Box>
+                        <Box flex={1}>
+                          <Typography variant="h5" fontWeight="bold">
+                            Automatic Setup
+                          </Typography>
+                          <Chip 
+                            label="Recommended" 
+                            color="success" 
+                            size="small" 
+                            sx={{ mt: 0.5 }}
+                            icon={<BoltIcon />}
+                          />
+                        </Box>
+                      </Box>
+                      <Typography variant="body2" color="textSecondary" paragraph>
+                        Let the wizard automatically create and configure your Azure AD application with all required permissions.
                       </Typography>
-                      <Chip label="Recommended" color="success" size="small" sx={{ ml: 'auto' }} />
-                    </Box>
-                    <Typography variant="body2" color="textSecondary" paragraph>
-                      Let the wizard automatically create and configure your Azure AD application with all required permissions.
-                    </Typography>
-                    <List dense>
-                      <ListItem>
-                        <ListItemIcon><CheckCircleIcon color="success" fontSize="small" /></ListItemIcon>
-                        <ListItemText primary="Automatic app creation" />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon><CheckCircleIcon color="success" fontSize="small" /></ListItemIcon>
-                        <ListItemText primary="Permission configuration" />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon><CheckCircleIcon color="success" fontSize="small" /></ListItemIcon>
-                        <ListItemText primary="Admin consent handling" />
-                      </ListItem>
-                    </List>
-                  </CardContent>
-                </Card>
+                      <List dense>
+                        <ListItem sx={{ pl: 0 }}>
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <CheckCircleIcon color="success" fontSize="small" />
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary="One-click setup" 
+                            primaryTypographyProps={{ variant: 'body2' }}
+                          />
+                        </ListItem>
+                        <ListItem sx={{ pl: 0 }}>
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <CheckCircleIcon color="success" fontSize="small" />
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary="Automatic permissions" 
+                            primaryTypographyProps={{ variant: 'body2' }}
+                          />
+                        </ListItem>
+                        <ListItem sx={{ pl: 0 }}>
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <CheckCircleIcon color="success" fontSize="small" />
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary="Admin consent handling" 
+                            primaryTypographyProps={{ variant: 'body2' }}
+                          />
+                        </ListItem>
+                      </List>
+                    </CardContent>
+                  </MotionCard>
+                </Grid>
+                
+                <Grid item xs={12} md={6}>
+                  <MotionCard
+                    whileHover={{ scale: 1.02, boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
+                    whileTap={{ scale: 0.98 }}
+                    sx={{ 
+                      cursor: 'pointer',
+                      border: setupMode === 'manual' ? '2px solid' : '1px solid',
+                      borderColor: setupMode === 'manual' ? 'primary.main' : 'divider',
+                      borderRadius: 3,
+                      overflow: 'hidden',
+                      position: 'relative',
+                      background: setupMode === 'manual' 
+                        ? theme.palette.mode === 'dark'
+                          ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%)'
+                          : 'linear-gradient(135deg, #667eea15 0%, #764ba215 100%)'
+                        : 'transparent'
+                    }}
+                    onClick={() => setSetupMode('manual')}
+                  >
+                    <CardContent sx={{ p: 3 }}>
+                      <Box display="flex" alignItems="center" mb={2}>
+                        <Box sx={{ 
+                          background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                          borderRadius: 2,
+                          p: 1,
+                          mr: 2,
+                          display: 'flex'
+                        }}>
+                          <SettingsIcon sx={{ fontSize: 32, color: 'white' }} />
+                        </Box>
+                        <Box flex={1}>
+                          <Typography variant="h5" fontWeight="bold">
+                            Manual Setup
+                          </Typography>
+                          <Chip 
+                            label="Advanced" 
+                            color="info" 
+                            size="small" 
+                            sx={{ mt: 0.5 }}
+                            icon={<BuildIcon />}
+                          />
+                        </Box>
+                      </Box>
+                      <Typography variant="body2" color="textSecondary" paragraph>
+                        Manually enter your existing Azure AD application details for complete control.
+                      </Typography>
+                      <List dense>
+                        <ListItem sx={{ pl: 0 }}>
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <CheckCircleIcon color="info" fontSize="small" />
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary="Use existing app" 
+                            primaryTypographyProps={{ variant: 'body2' }}
+                          />
+                        </ListItem>
+                        <ListItem sx={{ pl: 0 }}>
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <CheckCircleIcon color="info" fontSize="small" />
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary="Custom configuration" 
+                            primaryTypographyProps={{ variant: 'body2' }}
+                          />
+                        </ListItem>
+                        <ListItem sx={{ pl: 0 }}>
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <CheckCircleIcon color="info" fontSize="small" />
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary="Full control" 
+                            primaryTypographyProps={{ variant: 'body2' }}
+                          />
+                        </ListItem>
+                      </List>
+                    </CardContent>
+                  </MotionCard>
+                </Grid>
               </Grid>
               
-              <Grid item xs={12} md={6}>
-                <Card 
+              <Box mt={4} display="flex" justifyContent="center">
+                <Button 
+                  variant="contained" 
+                  size="large"
+                  onClick={() => setActiveStep(1)}
+                  disabled={!setupMode}
+                  startIcon={<RocketIcon />}
                   sx={{ 
-                    cursor: 'pointer',
-                    border: setupMode === 'manual' ? '2px solid' : '1px solid',
-                    borderColor: setupMode === 'manual' ? 'primary.main' : 'divider',
-                    '&:hover': { borderColor: 'primary.main' }
+                    borderRadius: 3,
+                    px: 4,
+                    py: 1.5,
+                    textTransform: 'none',
+                    fontSize: '1.1rem',
+                    fontWeight: 'bold',
+                    background: setupMode 
+                      ? theme.palette.mode === 'dark'
+                        ? 'linear-gradient(135deg, #4c63b6 0%, #542f75 100%)'
+                        : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                      : undefined
                   }}
-                  onClick={() => setSetupMode('manual')}
                 >
-                  <CardContent>
-                    <Box display="flex" alignItems="center" mb={2}>
-                      <SettingsIcon color="primary" sx={{ mr: 2, fontSize: 40 }} />
-                      <Typography variant="h5">
-                        Manual Setup
-                      </Typography>
-                    </Box>
-                    <Typography variant="body2" color="textSecondary" paragraph>
-                      Manually enter your existing Azure AD application details.
-                    </Typography>
-                    <List dense>
-                      <ListItem>
-                        <ListItemIcon><CheckCircleIcon color="info" fontSize="small" /></ListItemIcon>
-                        <ListItemText primary="Use existing app" />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon><CheckCircleIcon color="info" fontSize="small" /></ListItemIcon>
-                        <ListItemText primary="Manual configuration" />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon><CheckCircleIcon color="info" fontSize="small" /></ListItemIcon>
-                        <ListItemText primary="Full control" />
-                      </ListItem>
-                    </List>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
-            
-            <Box mt={3} display="flex" justifyContent="flex-end">
-              <Button 
-                variant="contained" 
-                onClick={() => setActiveStep(1)}
-                disabled={!setupMode}
-              >
-                Continue
-              </Button>
+                  Continue with {setupMode === 'automatic' ? 'Automatic' : setupMode === 'manual' ? 'Manual' : ''} Setup
+                </Button>
+              </Box>
             </Box>
-          </Box>
+          </Fade>
         );
         
       case 1:
@@ -1008,32 +836,70 @@ const ExchangeSetup = () => {
         
       case 3:
         return (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Test Connection
-            </Typography>
-            <Alert severity="success" sx={{ mb: 2 }}>
-              <AlertTitle>Configuration Complete!</AlertTitle>
-              Your Exchange Online integration is ready. Test the connection below.
-            </Alert>
-            <Button 
-              variant="contained" 
-              onClick={() => testConnection(status?.defaultAccount)}
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Test Connection'}
-            </Button>
-            {testResult && (
-              <Alert severity={testResult.success ? 'success' : 'error'} sx={{ mt: 2 }}>
-                {testResult.message || testResult.error}
-              </Alert>
-            )}
-            <Box mt={3}>
-              <Button onClick={() => setShowSetupWizard(false)}>
-                Go to Status Overview
-              </Button>
+          <Fade in={true}>
+            <Box textAlign="center">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ duration: 0.5 }}
+              >
+                <CheckCircleIcon sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
+              </motion.div>
+              <Typography variant="h4" gutterBottom fontWeight="bold">
+                Configuration Complete!
+              </Typography>
+              <Typography variant="subtitle1" color="textSecondary" paragraph>
+                Your Exchange Online integration is ready to use.
+              </Typography>
+              
+              <Box mt={4}>
+                <Button 
+                  variant="contained" 
+                  size="large"
+                  onClick={() => testConnection(status?.defaultAccount)}
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={20} /> : <SendIcon />}
+                  sx={{ 
+                    borderRadius: 3,
+                    px: 4,
+                    py: 1.5,
+                    mr: 2,
+                    textTransform: 'none',
+                    background: theme.palette.mode === 'dark'
+                      ? 'linear-gradient(135deg, #4c63b6 0%, #542f75 100%)'
+                      : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                  }}
+                >
+                  Test Connection
+                </Button>
+                <Button 
+                  variant="outlined"
+                  size="large" 
+                  onClick={() => setShowSetupWizard(false)}
+                  sx={{ 
+                    borderRadius: 3,
+                    px: 4,
+                    py: 1.5,
+                    textTransform: 'none'
+                  }}
+                >
+                  Go to Dashboard
+                </Button>
+              </Box>
+              
+              {testResult && (
+                <Grow in={true}>
+                  <Alert 
+                    severity={testResult.success ? 'success' : 'error'} 
+                    sx={{ mt: 3, borderRadius: 2 }}
+                  >
+                    <AlertTitle>{testResult.success ? 'Test Successful' : 'Test Failed'}</AlertTitle>
+                    {testResult.message || testResult.error}
+                  </Alert>
+                </Grow>
+              )}
             </Box>
-          </Box>
+          </Fade>
         );
         
       default:
@@ -1043,54 +909,103 @@ const ExchangeSetup = () => {
 
   // Show Setup Wizard
   return (
-    <Container maxWidth="lg">
-      <Paper sx={{ p: 4, mt: 3 }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-          <Typography variant="h5">Exchange Online Setup</Typography>
-          <Button
-            variant="outlined"
-            color="secondary"
-            onClick={() => {
-              // Reset wizard state and close
-              setActiveStep(0);
-              setSetupMode('choose');
-              setError(null);
-              setSuccess(null);
-              setShowSetupWizard(false);
-              // Refresh status to show current state
-              checkStatus();
-            }}
-          >
-            Cancel Setup
-          </Button>
-        </Box>
-        
-        {/* Only show stepper for manual setup or when choosing method - automatic setup has its own stepper */}
-        {(activeStep === 0 || setupMode !== 'automatic') && (
-          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
-        )}
-        
-        {renderStepContent(activeStep)}
-        
-        {error && (
-          <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
-            {error}
-          </Alert>
-        )}
-        
-        {success && (
-          <Alert severity="success" sx={{ mt: 2 }} onClose={() => setSuccess(null)}>
-            {success}
-          </Alert>
-        )}
-      </Paper>
-    </Container>
+    <Box sx={{ 
+      minHeight: '100vh',
+      background: theme.palette.mode === 'dark'
+        ? theme.palette.background.default
+        : 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
+      py: 4
+    }}>
+      <MotionBox
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        sx={{ maxWidth: 1200, mx: 'auto', px: 3 }}
+      >
+        <Paper sx={{ 
+          p: { xs: 3, md: 5 }, 
+          borderRadius: 4,
+          boxShadow: '0 20px 60px rgba(0,0,0,0.1)'
+        }}>
+          <Box display="flex" justifyContent="space-between" alignItems="center" mb={4}>
+            <Box display="flex" alignItems="center" gap={2}>
+              <CloudSyncIcon sx={{ fontSize: 40, color: 'primary.main' }} />
+              <Typography variant="h4" fontWeight="bold">
+                Exchange Online Setup
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={() => {
+                // Reset wizard state and close
+                setActiveStep(0);
+                setSetupMode('choose');
+                setError(null);
+                setSuccess(null);
+                setShowSetupWizard(false);
+                // Refresh status to show current state
+                checkStatus();
+              }}
+              sx={{ borderRadius: 2 }}
+            >
+              Cancel Setup
+            </Button>
+          </Box>
+          
+          {/* Only show stepper for manual setup or when choosing method - automatic setup has its own stepper */}
+          {(activeStep === 0 || setupMode !== 'automatic') && (
+            <Stepper activeStep={activeStep} sx={{ mb: 5 }}>
+              {steps.map((label, index) => (
+                <Step key={label}>
+                  <StepLabel
+                    StepIconProps={{
+                      sx: {
+                        fontSize: 28,
+                        '&.Mui-completed': {
+                          color: 'success.main'
+                        },
+                        '&.Mui-active': {
+                          color: 'primary.main'
+                        }
+                      }
+                    }}
+                  >
+                    <Typography variant="body1" fontWeight={activeStep === index ? 'bold' : 'normal'}>
+                      {label}
+                    </Typography>
+                  </StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+          )}
+          
+          <Box sx={{ minHeight: 400 }}>
+            {renderStepContent(activeStep)}
+          </Box>
+          
+          <Collapse in={!!error}>
+            <Alert 
+              severity="error" 
+              sx={{ mt: 3, borderRadius: 2 }} 
+              onClose={() => setError(null)}
+            >
+              {error}
+            </Alert>
+          </Collapse>
+          
+          <Collapse in={!!success}>
+            <Alert 
+              severity="success" 
+              sx={{ mt: 3, borderRadius: 2 }} 
+              onClose={() => setSuccess(null)}
+            >
+              {success}
+            </Alert>
+          </Collapse>
+        </Paper>
+      </MotionBox>
+    </Box>
   );
 };
 
