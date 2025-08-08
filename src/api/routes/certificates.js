@@ -296,21 +296,58 @@ router.get('/status', authenticate, authorize('admin'), async (req, res) => {
     if (status.hasCertificate) {
       try {
         // Use spawn to safely get certificate info
-        const [enddate, issuer, subject, fingerprint] = await Promise.all([
+        const [enddate, startdate, issuer, subject, fingerprint, serial, text] = await Promise.all([
           execCommand('openssl', ['x509', '-in', certPath, '-noout', '-enddate']),
+          execCommand('openssl', ['x509', '-in', certPath, '-noout', '-startdate']),
           execCommand('openssl', ['x509', '-in', certPath, '-noout', '-issuer']),
           execCommand('openssl', ['x509', '-in', certPath, '-noout', '-subject']),
-          execCommand('openssl', ['x509', '-in', certPath, '-noout', '-fingerprint', '-sha256'])
+          execCommand('openssl', ['x509', '-in', certPath, '-noout', '-fingerprint', '-sha256']),
+          execCommand('openssl', ['x509', '-in', certPath, '-noout', '-serial']),
+          execCommand('openssl', ['x509', '-in', certPath, '-noout', '-text'])
         ]);
         
         const expiryDate = new Date(enddate.replace('notAfter=', '').trim());
+        const startDate = new Date(startdate.replace('notBefore=', '').trim());
         status.expiryDate = expiryDate.toISOString();
+        status.validFrom = startDate.toISOString();
+        status.validTo = expiryDate.toISOString();
         status.daysUntilExpiry = Math.floor((expiryDate - Date.now()) / (1000 * 60 * 60 * 24));
         status.issuer = issuer.replace('issuer=', '').trim();
         status.subject = subject.replace('subject=', '').trim();
         status.fingerprint = fingerprint.replace(/.*=/, '').trim();
+        status.serialNumber = serial.replace('serial=', '').trim();
         status.isSelfSigned = status.issuer === status.subject;
         status.isValid = status.daysUntilExpiry > 0;
+        
+        // Extract additional details from text output
+        const sigAlgMatch = text.match(/Signature Algorithm: (.+)/);
+        if (sigAlgMatch) {
+          status.signatureAlgorithm = sigAlgMatch[1].trim();
+        }
+        
+        // Extract RSA key size
+        const rsaMatch = text.match(/RSA Public-Key: \((\d+) bit\)/);
+        if (rsaMatch) {
+          status.keySize = parseInt(rsaMatch[1]);
+        }
+        
+        // Extract EC key info
+        const ecMatch = text.match(/Public-Key: \((\d+) bit\)/);
+        if (!rsaMatch && ecMatch) {
+          status.keySize = parseInt(ecMatch[1]);
+        }
+        
+        // Extract Subject Alternative Names
+        const sanMatch = text.match(/X509v3 Subject Alternative Name:[\s\S]*?DNS:([^\n]+)/);
+        if (sanMatch) {
+          const sans = sanMatch[1].split(',').map(s => s.trim().replace(/^DNS:/, ''));
+          status.altNames = sans;
+        }
+        
+        // Check if it's Let's Encrypt
+        if (status.issuer && status.issuer.includes("Let's Encrypt")) {
+          status.isLetsEncrypt = true;
+        }
         
       } catch (error) {
         // Don't expose internal errors
