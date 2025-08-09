@@ -131,38 +131,52 @@ else
     print_info "Using existing config.yml"
 fi
 
-# Create default admin user
-if [ ! -f .users.enc ]; then
+# Create default admin user in correct location
+if [ ! -f data/users.json ]; then
     print_info "Creating default admin user (admin/admin)..."
+    mkdir -p data
     node -e "
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const fs = require('fs');
 
+// Create data directory
+if (!fs.existsSync('data')) {
+  fs.mkdirSync('data', { recursive: true });
+}
+
+// Create encryption key
 const ENCRYPTION_KEY = crypto.randomBytes(32);
-const IV = crypto.randomBytes(16);
+fs.writeFileSync('data/.encryption.key', ENCRYPTION_KEY.toString('hex'));
 
-const users = [{
-  id: '1',
-  username: 'admin',
-  password: bcrypt.hashSync('admin', 10),
-  role: 'admin',
-  created: new Date().toISOString(),
-  lastLogin: null,
-  mfaEnabled: false,
-  locked: false,
-  failedAttempts: 0
-}];
+// Create admin user
+const users = {
+  admin: {
+    id: '1',
+    username: 'admin',
+    password: bcrypt.hashSync('admin', 10),
+    role: 'admin',
+    permissions: ['read', 'write', 'delete', 'configure', 'manage_users'],
+    displayName: 'Administrator',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    failedAttempts: 0,
+    lockedUntil: null,
+    totpSecret: null,
+    totpEnabled: false,
+    mfaEnforced: false,
+    lastLogin: null,
+    passwordChangedAt: new Date().toISOString(),
+    requirePasswordChange: false,
+    locked: false
+  }
+};
 
-const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, IV);
-let encrypted = cipher.update(JSON.stringify(users), 'utf8', 'hex');
-encrypted += cipher.final('hex');
+// Write users file
+fs.writeFileSync('data/users.json', JSON.stringify(users, null, 2));
 
-fs.writeFileSync('.users.enc', JSON.stringify({
-  iv: IV.toString('hex'),
-  data: encrypted
-}));
-fs.writeFileSync('.encryption.key', ENCRYPTION_KEY.toString('hex'));
+// Create empty MFA file (no MFA by default!)
+fs.writeFileSync('data/mfa.json', JSON.stringify({}));
 
 console.log('Admin user created');
 " 2>/dev/null

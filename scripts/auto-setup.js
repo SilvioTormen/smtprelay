@@ -109,9 +109,16 @@ security:
     log.info('Using existing config.yml');
   }
 
-  // 3. Create default admin user
-  const usersPath = path.join(projectRoot, '.users.enc');
-  const keyPath = path.join(projectRoot, '.encryption.key');
+  // 3. Create default admin user in correct location (/data)
+  const dataDir = path.join(process.cwd(), 'data');
+  const usersPath = path.join(dataDir, 'users.json');
+  const mfaPath = path.join(dataDir, 'mfa.json');
+  const encKeyPath = path.join(dataDir, '.encryption.key');
+  
+  // Create data directory
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+  }
   
   if (!fs.existsSync(usersPath)) {
     log.info('Creating default admin user...');
@@ -119,30 +126,39 @@ security:
     try {
       const bcrypt = require('bcrypt');
       
+      // Create encryption key for the service
       const ENCRYPTION_KEY = crypto.randomBytes(32);
-      const IV = crypto.randomBytes(16);
+      fs.writeFileSync(encKeyPath, ENCRYPTION_KEY.toString('hex'));
       
-      const users = [{
-        id: '1',
-        username: 'admin',
-        password: bcrypt.hashSync('admin', 10),
-        role: 'admin',
-        created: new Date().toISOString(),
-        lastLogin: null,
-        mfaEnabled: false,
-        locked: false,
-        failedAttempts: 0
-      }];
+      // Create admin user
+      const adminPassword = bcrypt.hashSync('admin', 10);
+      const users = {
+        admin: {
+          id: '1',
+          username: 'admin',
+          password: adminPassword,
+          role: 'admin',
+          permissions: ['read', 'write', 'delete', 'configure', 'manage_users'],
+          displayName: 'Administrator',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          failedAttempts: 0,
+          lockedUntil: null,
+          totpSecret: null,
+          totpEnabled: false,
+          mfaEnforced: false,
+          lastLogin: null,
+          passwordChangedAt: new Date().toISOString(),
+          requirePasswordChange: false,
+          locked: false
+        }
+      };
       
-      const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, IV);
-      let encrypted = cipher.update(JSON.stringify(users), 'utf8', 'hex');
-      encrypted += cipher.final('hex');
+      // Write users file
+      fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
       
-      fs.writeFileSync(usersPath, JSON.stringify({
-        iv: IV.toString('hex'),
-        data: encrypted
-      }));
-      fs.writeFileSync(keyPath, ENCRYPTION_KEY.toString('hex'));
+      // Create empty MFA file (no MFA enabled by default!)
+      fs.writeFileSync(mfaPath, JSON.stringify({}));
       
       log.success('Default admin user created (username: admin, password: admin)');
       log.warning('IMPORTANT: Change the default password after first login!');
