@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -24,30 +24,44 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  FormHelperText,
-  IconButton,
-  Tooltip
+  FormHelperText
 } from '@mui/material';
 import {
   CheckCircle as CheckIcon,
   ContentCopy as CopyIcon,
   Link as LinkIcon,
   CloudUpload as CloudIcon,
-  Security as SecurityIcon,
   AdminPanelSettings as AdminIcon,
   PowerSettingsNew as PowerIcon,
-  Warning as WarningIcon
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext-Debug';
+import PropTypes from 'prop-types';
 
-const AzureAdminSetup = ({ onComplete, onCancel }) => {
+// Constants
+const INITIAL_APP_CONFIG = {
+  displayName: 'SMTP Relay for Exchange Online',
+  authMethod: 'device_code',
+  apiMethod: 'graph_api',
+  useClientSecret: false,
+  clientSecretExpiry: 365
+};
+
+const STEPS = ['Enter Tenant', 'Admin Authentication', 'Configure App', 'Create App'];
+
+const POLLING_INTERVAL = 5000; // 5 seconds
+const CONSENT_WINDOW_DELAY = 2000; // 2 seconds
+const REDIRECT_COUNTDOWN_DURATION = 5; // 5 seconds
+
+const AzureAdminSetup = ({ onComplete, onBack }) => {
   const { apiRequest } = useAuth();
+  
+  // UI State
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
   
-  // Setup data
+  // Authentication State
   const [tenantId, setTenantId] = useState('');
   const [flowId, setFlowId] = useState(null);
   const [deviceCodeInfo, setDeviceCodeInfo] = useState(null);
@@ -55,54 +69,55 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
   const [adminAuthenticated, setAdminAuthenticated] = useState(false);
   const [adminInfo, setAdminInfo] = useState(null);
   
-  // App configuration
-  const [appConfig, setAppConfig] = useState({
-    displayName: 'SMTP Relay for Exchange Online',
-    authMethod: 'device_code',
-    apiMethod: 'graph_api',
-    useClientSecret: false,
-    clientSecretExpiry: 365
-  });
-  
+  // Application Configuration
+  const [appConfig, setAppConfig] = useState(INITIAL_APP_CONFIG);
   const [appCreated, setAppCreated] = useState(null);
   const [redirectCountdown, setRedirectCountdown] = useState(null);
   
-  const steps = ['Enter Tenant', 'Admin Authentication', 'Configure App', 'Create App'];
-  
-  // Polling for admin auth
+  // Clear error message when changing steps
   useEffect(() => {
-    let pollInterval;
-    if (polling && flowId) {
-      pollInterval = setInterval(async () => {
-        try {
-          const response = await apiRequest('/api/azure-graph/admin/poll', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ flowId })
-          });
-          
-          const data = await response.json();
-          
-          if (data.success) {
-            setPolling(false);
-            setAdminAuthenticated(true);
-            setAdminInfo(data);
-            setSuccess(`Authenticated as ${data.adminUser}`);
-            setTimeout(() => setActiveStep(2), 2000);
-          } else if (data.error) {
-            setPolling(false);
-            setError(data.error);
-          }
-        } catch (err) {
-          // Continue polling on network errors
-          console.log('Polling...', err.message);
-        }
-      }, 5000);
-    }
-    return () => clearInterval(pollInterval);
-  }, [polling, flowId]);
+    setError(null);
+  }, [activeStep]);
   
-  const startAdminAuth = async () => {
+  // Polling for admin authentication
+  useEffect(() => {
+    if (!polling || !flowId) return;
+    
+    const pollForAuth = async () => {
+      try {
+        const response = await apiRequest('/api/azure-graph/admin/poll', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ flowId })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+          setPolling(false);
+          setAdminAuthenticated(true);
+          setAdminInfo(data);
+          setActiveStep(2);
+        } else if (data.error && !data.pending) {
+          setPolling(false);
+          setError(data.error);
+        }
+      } catch (err) {
+        // Continue polling on network errors
+        console.log('Polling in progress...', err.message);
+      }
+    };
+    
+    const pollInterval = setInterval(pollForAuth, POLLING_INTERVAL);
+    return () => clearInterval(pollInterval);
+  }, [polling, flowId, apiRequest]);
+  
+  const startAdminAuth = useCallback(async () => {
+    if (!tenantId.trim()) {
+      setError('Tenant ID is required');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     
@@ -110,7 +125,7 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
       const response = await apiRequest('/api/azure-graph/admin/init', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId })
+        body: JSON.stringify({ tenantId: tenantId.trim() })
       });
       
       const data = await response.json();
@@ -124,13 +139,18 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
         setError(data.error || 'Failed to start authentication');
       }
     } catch (err) {
-      setError('Failed to start authentication: ' + err.message);
+      setError(`Failed to start authentication: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId, apiRequest]);
   
-  const createApp = async () => {
+  const createApp = useCallback(async () => {
+    if (!flowId || !appConfig.displayName.trim()) {
+      setError('Invalid configuration');
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     
@@ -140,63 +160,97 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           flowId,
-          appConfig
+          appConfig: {
+            ...appConfig,
+            displayName: appConfig.displayName.trim()
+          }
         })
       });
       
-      // Check if response is ok (2xx status)
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.details || errorData.error || 'Failed to create application');
       }
       
       const data = await response.json();
-      
       setAppCreated(data);
-      setSuccess('Application created successfully!');
-      setActiveStep(3); // Ensure we stay on the success screen
+      setActiveStep(3);
       
-      // If consent URL is provided, open it
+      // Open consent URL if provided
       if (data.consentUrl) {
         setTimeout(() => {
-          window.open(data.consentUrl, '_blank');
-        }, 2000);
+          window.open(data.consentUrl, '_blank', 'noopener,noreferrer');
+        }, CONSENT_WINDOW_DELAY);
       }
       
-      // Start countdown for redirect
-      setRedirectCountdown(5);
-      let countdown = 5;
-      const countdownInterval = setInterval(() => {
-        countdown--;
-        setRedirectCountdown(countdown);
-        if (countdown <= 0) {
-          clearInterval(countdownInterval);
-          if (onComplete) {
-            onComplete({
-              application: data.application,
-              config: appConfig,
-              success: true
-            });
-          }
-        }
-      }, 1000);
+      // Start countdown for auto-complete
+      startRedirectCountdown(data);
       
     } catch (err) {
       console.error('App creation error:', err);
       setError(err.message || 'Failed to create application');
-      setLoading(false);
     } finally {
       setLoading(false);
     }
-  };
+  }, [flowId, appConfig, apiRequest, onComplete]);
   
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    setSuccess('Copied to clipboard!');
-    setTimeout(() => setSuccess(null), 2000);
-  };
+  const startRedirectCountdown = useCallback((data) => {
+    let countdown = REDIRECT_COUNTDOWN_DURATION;
+    setRedirectCountdown(countdown);
+    
+    const countdownInterval = setInterval(() => {
+      countdown -= 1;
+      setRedirectCountdown(countdown);
+      
+      if (countdown <= 0) {
+        clearInterval(countdownInterval);
+        if (onComplete) {
+          onComplete({
+            application: data.application,
+            config: appConfig,
+            success: true
+          });
+        }
+      }
+    }, 1000);
+    
+    return () => clearInterval(countdownInterval);
+  }, [appConfig, onComplete]);
   
-  const renderStepContent = () => {
+  const copyToClipboard = useCallback(async (text) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      // Visual feedback could be added here if needed (e.g., tooltip)
+    } catch (err) {
+      console.error('Failed to copy to clipboard:', err);
+      setError('Failed to copy to clipboard');
+    }
+  }, []);
+  
+  // Memoized computed values
+  const isStepValid = useMemo(() => {
+    switch (activeStep) {
+      case 0: return tenantId.trim().length > 0;
+      case 1: return adminAuthenticated;
+      case 2: return appConfig.displayName.trim().length > 0;
+      case 3: return true;
+      default: return false;
+    }
+  }, [activeStep, tenantId, adminAuthenticated, appConfig.displayName]);
+  
+  const handleAppConfigChange = useCallback((field, value) => {
+    setAppConfig(prev => ({ ...prev, [field]: value }));
+  }, []);
+  
+  const handleStepBack = useCallback(() => {
+    setActiveStep(prev => Math.max(0, prev - 1));
+  }, []);
+  
+  const handleStepNext = useCallback(() => {
+    setActiveStep(prev => Math.min(STEPS.length - 1, prev + 1));
+  }, []);
+  
+  const renderStepContent = useMemo(() => {
     switch (activeStep) {
       case 0: // Enter Tenant
         return (
@@ -233,6 +287,7 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
               label="Tenant ID or Domain"
               value={tenantId}
               onChange={(e) => setTenantId(e.target.value)}
+              error={error && activeStep === 0}
               placeholder="contoso.onmicrosoft.com or xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
               margin="normal"
               helperText="Enter your Azure AD tenant domain or ID"
@@ -365,7 +420,7 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
               fullWidth
               label="Application Name"
               value={appConfig.displayName}
-              onChange={(e) => setAppConfig({ ...appConfig, displayName: e.target.value })}
+              onChange={(e) => handleAppConfigChange('displayName', e.target.value)}
               margin="normal"
               helperText="Display name for your Azure AD application"
             />
@@ -374,7 +429,7 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
               <InputLabel>Authentication Method</InputLabel>
               <Select
                 value={appConfig.authMethod}
-                onChange={(e) => setAppConfig({ ...appConfig, authMethod: e.target.value })}
+                onChange={(e) => handleAppConfigChange('authMethod', e.target.value)}
                 label="Authentication Method"
               >
                 <MenuItem value="device_code">Device Code Flow (User Context)</MenuItem>
@@ -389,7 +444,7 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
               <InputLabel>API Method</InputLabel>
               <Select
                 value={appConfig.apiMethod}
-                onChange={(e) => setAppConfig({ ...appConfig, apiMethod: e.target.value })}
+                onChange={(e) => handleAppConfigChange('apiMethod', e.target.value)}
                 label="API Method"
               >
                 <MenuItem value="graph_api">Microsoft Graph API</MenuItem>
@@ -397,13 +452,47 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
               </Select>
             </FormControl>
             
+            {appConfig.apiMethod === 'smtp_oauth' && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                <AlertTitle>SMTP AUTH Required</AlertTitle>
+                <Typography variant="body2">
+                  SMTP OAuth2 requires SMTP AUTH to be enabled for each mailbox.
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  <strong>To enable SMTP AUTH:</strong>
+                </Typography>
+                <Typography variant="body2" component="pre" sx={{ 
+                  mt: 1, 
+                  p: 1, 
+                  bgcolor: theme => theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.05)' 
+                    : 'rgba(0, 0, 0, 0.04)',
+                  color: theme => theme.palette.mode === 'dark'
+                    ? '#90caf9'
+                    : '#1976d2',
+                  border: theme => `1px solid ${theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.12)' 
+                    : 'rgba(0, 0, 0, 0.12)'}`,
+                  borderRadius: 1,
+                  fontSize: '0.85rem',
+                  fontFamily: 'monospace'
+                }}>
+{`Set-CASMailbox -Identity user@domain.com \\
+  -SmtpClientAuthenticationDisabled $false`}
+                </Typography>
+                <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
+                  Note: Microsoft Graph API does not require SMTP AUTH.
+                </Typography>
+              </Alert>
+            )}
+            
             {appConfig.authMethod === 'client_credentials' && (
               <>
                 <FormControlLabel
                   control={
                     <Switch
                       checked={appConfig.useClientSecret}
-                      onChange={(e) => setAppConfig({ ...appConfig, useClientSecret: e.target.checked })}
+                      onChange={(e) => handleAppConfigChange('useClientSecret', e.target.checked)}
                     />
                   }
                   label="Create Client Secret"
@@ -415,7 +504,7 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
                     <InputLabel>Secret Expiry</InputLabel>
                     <Select
                       value={appConfig.clientSecretExpiry}
-                      onChange={(e) => setAppConfig({ ...appConfig, clientSecretExpiry: e.target.value })}
+                      onChange={(e) => handleAppConfigChange('clientSecretExpiry', e.target.value)}
                       label="Secret Expiry"
                     >
                       <MenuItem value={90}>3 Months</MenuItem>
@@ -436,7 +525,7 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
               variant="contained"
               fullWidth
               sx={{ mt: 3 }}
-              onClick={() => setActiveStep(3)}
+              onClick={handleStepNext}
               startIcon={<CloudIcon />}
             >
               Review & Create Application
@@ -528,23 +617,6 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
                   <Typography variant="body2" color="text.secondary">
                     Setup complete! {redirectCountdown && redirectCountdown > 0 && `Redirecting in ${redirectCountdown} seconds...`}
                   </Typography>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    sx={{ mt: 2 }}
-                    onClick={() => {
-                      setRedirectCountdown(null); // Cancel auto-redirect
-                      if (onComplete) {
-                        onComplete({
-                          application: appCreated.application,
-                          config: appConfig,
-                          success: true
-                        });
-                      }
-                    }}
-                  >
-                    Continue to Dashboard
-                  </Button>
                 </Box>
               </>
             ) : (
@@ -566,7 +638,9 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
       default:
         return null;
     }
-  };
+  }, [activeStep, tenantId, deviceCodeInfo, polling, adminInfo, appConfig, appCreated, 
+      redirectCountdown, loading, error, handleAppConfigChange, startAdminAuth, 
+      createApp, copyToClipboard, handleStepNext, onComplete]);
   
   return (
     <Paper sx={{ p: 4 }}>
@@ -578,14 +652,16 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
       </Box>
       
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-        {steps.map((label) => (
-          <Step key={label}>
+        {STEPS.map((label, index) => (
+          <Step key={label} completed={index < activeStep}>
             <StepLabel>{label}</StepLabel>
           </Step>
         ))}
       </Stepper>
       
-      {renderStepContent()}
+      <Box aria-label={`Step ${activeStep + 1}: ${STEPS[activeStep]}`}>
+        {renderStepContent}
+      </Box>
       
       {error && (
         <Alert severity="error" sx={{ mt: 2 }} onClose={() => setError(null)}>
@@ -593,49 +669,54 @@ const AzureAdminSetup = ({ onComplete, onCancel }) => {
         </Alert>
       )}
       
-      {success && (
-        <Alert severity="success" sx={{ mt: 2 }} onClose={() => setSuccess(null)}>
-          {success}
-        </Alert>
-      )}
+      {/* Success messages are shown within each step's content, 
+          so we don't need a general success alert at the bottom */}
       
       <Box display="flex" justifyContent="space-between" mt={3}>
         <Box>
-          {activeStep > 0 && !polling && !appCreated && (
+          {/* Back button logic:
+              - At step 0: go back to parent (method selection)
+              - At other steps: go back within AzureAdminSetup */}
+          {/* Single Back button with modern design */}
+          {!appCreated && (
             <Button 
-              onClick={() => setActiveStep(activeStep - 1)}
-              sx={{ mr: 1 }}
+              variant="contained"
+              startIcon={<ArrowBackIcon />}
+              onClick={activeStep === 0 ? onBack : handleStepBack}
+              disabled={polling}
+              sx={{ 
+                borderRadius: 2,
+                px: 2,
+                py: 1,
+                backgroundColor: '#9c27b0',
+                color: '#ffffff',
+                fontSize: '0.95rem',
+                fontWeight: 500,
+                textTransform: 'none',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  backgroundColor: '#7b1fa2',
+                  transform: 'translateX(-2px)'
+                },
+                '&:disabled': {
+                  opacity: 0.5,
+                  backgroundColor: '#ce93d8'
+                }
+              }}
             >
               Back
             </Button>
           )}
-          <Button 
-            onClick={onCancel}
-            color="secondary"
-          >
-            Cancel
-          </Button>
         </Box>
-        {activeStep === 3 && appCreated && (
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => {
-              if (onComplete) {
-                onComplete({
-                  application: appCreated.application,
-                  config: appConfig,
-                  success: true
-                });
-              }
-            }}
-          >
-            Finish Setup
-          </Button>
-        )}
       </Box>
     </Paper>
   );
+};
+
+// PropTypes validation
+AzureAdminSetup.propTypes = {
+  onComplete: PropTypes.func.isRequired,
+  onBack: PropTypes.func
 };
 
 export default AzureAdminSetup;

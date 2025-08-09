@@ -29,11 +29,12 @@ import {
   ContentCopy as CopyIcon,
   OpenInNew as OpenIcon,
   Info as InfoIcon,
-  Warning as WarningIcon
+  Warning as WarningIcon,
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext-Debug';
 
-const ManualAzureSetup = ({ onComplete, onCancel }) => {
+const ManualAzureSetup = ({ onComplete, onBack }) => {
   const { apiRequest } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -362,6 +363,40 @@ const ManualAzureSetup = ({ onComplete, onCancel }) => {
               </Select>
             </FormControl>
             
+            {config.apiMethod === 'smtp_oauth' && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                <AlertTitle>SMTP AUTH Required</AlertTitle>
+                <Typography variant="body2">
+                  SMTP OAuth2 requires SMTP AUTH to be enabled for each mailbox.
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  <strong>To enable SMTP AUTH:</strong>
+                </Typography>
+                <Typography variant="body2" component="pre" sx={{ 
+                  mt: 1, 
+                  p: 1, 
+                  bgcolor: theme => theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.05)' 
+                    : 'rgba(0, 0, 0, 0.04)',
+                  color: theme => theme.palette.mode === 'dark'
+                    ? '#90caf9'
+                    : '#1976d2',
+                  border: theme => `1px solid ${theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.12)' 
+                    : 'rgba(0, 0, 0, 0.12)'}`,
+                  borderRadius: 1,
+                  fontSize: '0.85rem',
+                  fontFamily: 'monospace'
+                }}>
+{`Set-CASMailbox -Identity user@domain.com \\
+  -SmtpClientAuthenticationDisabled $false`}
+                </Typography>
+                <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
+                  Note: Microsoft Graph API does not require SMTP AUTH.
+                </Typography>
+              </Alert>
+            )}
+            
             <Button
               variant="contained"
               fullWidth
@@ -472,14 +507,33 @@ const ManualAzureSetup = ({ onComplete, onCancel }) => {
       )}
       
       <Box display="flex" justifyContent="space-between" mt={3}>
-        <Button onClick={onCancel}>
-          Cancel
-        </Button>
-        {activeStep > 0 && activeStep < 3 && (
-          <Button onClick={() => setActiveStep(activeStep - 1)}>
-            Back
-          </Button>
-        )}
+        <Box>
+          {/* Single Back button with modern design */}
+          {(activeStep === 0 ? onBack : activeStep > 0 && activeStep < 3) && (
+            <Button 
+              variant="contained"
+              startIcon={<ArrowBackIcon />}
+              onClick={activeStep === 0 ? onBack : () => setActiveStep(activeStep - 1)}
+              sx={{ 
+                borderRadius: 2,
+                px: 2,
+                py: 1,
+                backgroundColor: '#9c27b0',
+                color: '#ffffff',
+                fontSize: '0.95rem',
+                fontWeight: 500,
+                textTransform: 'none',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  backgroundColor: '#7b1fa2',
+                  transform: 'translateX(-2px)'
+                }
+              }}
+            >
+              Back
+            </Button>
+          )}
+        </Box>
       </Box>
     </Paper>
   );

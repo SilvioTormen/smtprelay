@@ -5369,3 +5369,66 @@
 {"level":"error","message":"Device Code auth failed: No stored tokens found. Please authenticate first.","timestamp":"2025-08-08T20:38:57.114Z"}
 {"level":"error","message":"Failed to connect to Exchange Online: No stored tokens found. Please authenticate first.","timestamp":"2025-08-08T20:38:57.114Z"}
 {"ip":"::1","level":"info","message":"GET /api/system/info","requestId":"5805c08f-e906-4384-90be-66150122b569","timestamp":"2025-08-08T20:38:57.846Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/status","requestId":"1ce1c9cd-9602-4af3-9dfb-1347bc51b6fc","timestamp":"2025-08-08T20:39:05.246Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/history","requestId":"e15bbedc-f6f5-4c27-855d-20759c36bfa5","timestamp":"2025-08-08T20:39:05.247Z"}
+{"ip":"::1","level":"info","message":"GET /api/system/info","requestId":"3384a7c5-1dd9-448a-9533-a5f41b255811","timestamp":"2025-08-08T20:39:08.146Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/status","requestId":"0cf4d9f5-aab1-40b7-9212-d6625927111f","timestamp":"2025-08-08T20:39:09.310Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/history","requestId":"a0b6521a-d6cf-470c-8f1b-bfff749a47dc","timestamp":"2025-08-08T20:39:09.312Z"}
+{"ip":"::1","level":"info","message":"GET /api/system/info","requestId":"646e97a5-001a-41cc-aa9c-d20937546686","timestamp":"2025-08-08T20:39:10.264Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/history","requestId":"70d12255-f9c0-4b09-95ba-c691e860a273","timestamp":"2025-08-08T20:39:12.702Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/status","requestId":"e9b39d6f-0826-4757-be3d-efddc53fd413","timestamp":"2025-08-08T20:39:12.703Z"}
+{"ip":"::1","level":"info","message":"GET /api/system/info","requestId":"15c312ef-6a06-422d-a46b-09e69f33be42","timestamp":"2025-08-08T20:39:18.786Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/status","requestId":"56f44c7c-8316-4b9f-9d2a-696a49409fb8","timestamp":"2025-08-08T20:39:52.992Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/history","requestId":"ec1abc9b-6b7b-4282-9544-513f978c4b84","timestamp":"2025-08-08T20:39:52.993Z"}
+{"ip":"::1","level":"info","message":"GET /api/system/info","requestId":"85d54f7e-75a4-4413-be5b-9b7885057028","timestamp":"2025-08-08T20:39:53.757Z"}
+{"level":"info","message":"Using Device Code Flow for Exchange Online","timestamp":"2025-08-08T20:39:57.113Z"}
+{"level":"error","message":"Failed to get valid token: No stored tokens found. Please authenticate first.","timestamp":"2025-08-08T20:39:57.114Z"}
+{"level":"error","message":"Device Code auth failed: No stored tokens found. Please authenticate first.","timestamp":"2025-08-08T20:39:57.114Z"}
+{"level":"error","message":"Failed to connect to Exchange Online: No stored tokens found. Please authenticate first.","timestamp":"2025-08-08T20:39:57.114Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/status","requestId":"60f767db-471d-4ee7-a491-d01b35d84d01","timestamp":"2025-08-08T20:40:04.444Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/history","requestId":"e64d6412-019c-4fe8-9103-d5ff5c7107e2","timestamp":"2025-08-08T20:40:04.446Z"}
+{"ip":"::1","level":"info","message":"GET /api/system/info","requestId":"90071fa1-4967-4509-a776-bef61a7a75d1","timestamp":"2025-08-08T20:40:05.802Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/status","requestId":"c12e3ab9-cf96-45dd-9878-fa7b488474ad","timestamp":"2025-08-08T20:40:08.423Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/history","requestId":"5307cff8-a641-4b4d-bfd8-7784932efa61","timestamp":"2025-08-08T20:40:08.423Z"}
+{"ip":"::1","level":"info","message":"GET /api/system/info","requestId":"59d69a49-45d4-4386-a062-e0e725dca84f","timestamp":"2025-08-08T20:40:09.440Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/status","requestId":"7716010d-eca0-41b6-b2cf-f3760a687bc5","timestamp":"2025-08-08T20:40:10.296Z"}
+{"ip":"::1","level":"info","message":"GET /vite.svg","requestId":"1055b7af-855c-4ee9-a92f-1d02bba85ed7","timestamp":"2025-08-08T20:40:10.300Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/status","requestId":"d46f6f90-ca1f-4f69-9c84-a691d40c1e26","timestamp":"2025-08-08T20:40:10.320Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/token-status","requestId":"0fa01624-bbca-4555-8b9c-0d646326e011","timestamp":"2025-08-08T20:40:10.321Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/mailboxes","requestId":"9aff950c-f4b6-4027-9da2-148848e039d9","timestamp":"2025-08-08T20:40:10.323Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/status","requestId":"c42cbeb0-1ed6-483e-affb-bcc23e7295c8","timestamp":"2025-08-08T20:40:13.430Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/history","requestId":"c4f1866b-ded1-42f2-9c52-157b8f21cb86","timestamp":"2025-08-08T20:40:13.432Z"}
+{"ip":"::1","level":"info","message":"GET /vite.svg","requestId":"c046b0b3-d946-4592-bdeb-9de68e126805","timestamp":"2025-08-08T20:40:13.445Z"}
+{"ip":"::1","level":"info","message":"GET /api/auth/me","requestId":"5f4a207c-10ab-4cf8-97fb-4919c907bbe3","timestamp":"2025-08-08T20:40:15.607Z"}
+{"ip":"::1","level":"info","message":"GET /api/mfa/status","requestId":"63432317-6d59-47ab-9c03-598ad592cf53","timestamp":"2025-08-08T20:40:15.609Z"}
+{"ip":"::1","level":"info","message":"GET /vite.svg","requestId":"f8c72ac7-65ad-4ae6-b748-38682e12cd94","timestamp":"2025-08-08T20:40:15.610Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/status","requestId":"1ae8f1b9-6f9f-48b7-9ef9-b14a40ddc6d9","timestamp":"2025-08-08T20:40:22.143Z"}
+{"ip":"::1","level":"info","message":"GET /vite.svg","requestId":"8a99f6ae-2a7b-4a7d-9607-d5516b3415b8","timestamp":"2025-08-08T20:40:22.144Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/status","requestId":"3dc1e84f-a1e2-4533-b159-abb4990598dc","timestamp":"2025-08-08T20:40:22.173Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/token-status","requestId":"8d0a77e3-7c72-4308-8125-4bde6ed2ea81","timestamp":"2025-08-08T20:40:22.174Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/mailboxes","requestId":"48c6ec71-de4b-4ec5-9061-959cfe6b37ae","timestamp":"2025-08-08T20:40:22.175Z"}
+{"ip":"::1","level":"info","message":"GET /api/users","requestId":"94fb46d4-12f2-45f2-84f3-bf3d724ea63c","timestamp":"2025-08-08T20:40:25.438Z"}
+{"ip":"::1","level":"info","message":"GET /vite.svg","requestId":"a4786733-cb90-405e-8f93-f5e34370112c","timestamp":"2025-08-08T20:40:25.441Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/status","requestId":"73a96f0c-aeaa-4512-ab87-fd031f5eb1f0","timestamp":"2025-08-08T20:40:26.105Z"}
+{"ip":"::1","level":"info","message":"GET /vite.svg","requestId":"1bf8a2f0-4e22-48db-9caa-4b5ca84ab866","timestamp":"2025-08-08T20:40:26.107Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/status","requestId":"5f6a7e98-5861-4d64-a834-c19eb254d142","timestamp":"2025-08-08T20:40:26.128Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/token-status","requestId":"2e89a4b2-170c-4ae9-8d4d-768fc8584797","timestamp":"2025-08-08T20:40:26.130Z"}
+{"ip":"::1","level":"info","message":"GET /api/exchange-config/mailboxes","requestId":"9997a05d-180b-40a4-a2d7-eb5160ae22d3","timestamp":"2025-08-08T20:40:26.130Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/status","requestId":"f4ef7fd2-9ea0-400a-9c41-0ec1ad63dad1","timestamp":"2025-08-08T20:40:26.592Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/history","requestId":"d7375d69-3afd-474b-b553-c95177bd9930","timestamp":"2025-08-08T20:40:26.593Z"}
+{"ip":"::1","level":"info","message":"GET /vite.svg","requestId":"c0d078ba-8a8c-4bea-8f12-fc9c1ff7b2d1","timestamp":"2025-08-08T20:40:26.603Z"}
+{"ip":"::1","level":"info","message":"GET /api/system/info","requestId":"a96438a0-bd75-4870-a3b9-0a8d590116a0","timestamp":"2025-08-08T20:40:27.888Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/status","requestId":"faabc019-b688-4e12-b9b6-16d2e8a5549f","timestamp":"2025-08-08T20:40:34.693Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/history","requestId":"bb7a652e-6b64-4bba-ad0e-0b373330f917","timestamp":"2025-08-08T20:40:34.696Z"}
+{"ip":"::1","level":"info","message":"GET /api/system/info","requestId":"3b6fd0e4-4b1c-46f8-92c0-0d957b44b1aa","timestamp":"2025-08-08T20:40:35.698Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/status","requestId":"5ffb1978-def5-40b1-9124-7fb4ddb1c682","timestamp":"2025-08-08T20:40:38.131Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/history","requestId":"38fd5ecb-4660-44bf-9291-7d22139480ec","timestamp":"2025-08-08T20:40:38.132Z"}
+{"ip":"::1","level":"info","message":"GET /api/system/info","requestId":"2bf426eb-c5fe-4ea3-9744-7a11f90341e9","timestamp":"2025-08-08T20:40:41.402Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/history","requestId":"88e303ec-c493-44de-ac9f-2358254a9601","timestamp":"2025-08-08T20:40:50.951Z"}
+{"ip":"::1","level":"info","message":"GET /api/certificates/status","requestId":"0bf3b16e-d97f-47bb-abde-f37893b1e10f","timestamp":"2025-08-08T20:40:50.952Z"}
+{"ip":"::1","level":"info","message":"GET /api/system/info","requestId":"c1111fcf-0413-4331-83b2-e94fd97eec6a","timestamp":"2025-08-08T20:40:56.562Z"}
+{"level":"info","message":"Using Device Code Flow for Exchange Online","timestamp":"2025-08-08T20:40:57.115Z"}
+{"level":"error","message":"Failed to get valid token: No stored tokens found. Please authenticate first.","timestamp":"2025-08-08T20:40:57.116Z"}
+{"level":"error","message":"Device Code auth failed: No stored tokens found. Please authenticate first.","timestamp":"2025-08-08T20:40:57.116Z"}
+{"level":"error","message":"Failed to connect to Exchange Online: No stored tokens found. Please authenticate first.","timestamp":"2025-08-08T20:40:57.116Z"}
+{"level":"info","message":"Client disconnected: jDFH2xDCBKvTW4lXAAAB","timestamp":"2025-08-08T20:41:14.316Z"}

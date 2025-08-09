@@ -61,6 +61,7 @@ router.get('/status', authenticate, async (req, res) => {
                 appId: config.exchange_online.auth.client_id,
                 tenantId: config.exchange_online.auth.tenant_id,
                 authMethod: config.exchange_online.auth.method,
+                apiMethod: config.exchange_online?.api_method || 'graph_api',
                 status: hasTokens ? 'active' : 'inactive'
             });
         }
@@ -200,9 +201,9 @@ router.post('/oauth/init', authenticate, requireConfigure, async (req, res) => {
             
             const deviceCodeUrl = `https://login.microsoftonline.com/${sanitizedTenant}/oauth2/v2.0/devicecode`;
             validateMicrosoftUrl(deviceCodeUrl);
-            const scope = apiMethod === 'graph_api' 
-                ? 'https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access'
-                : 'https://outlook.office365.com/SMTP.Send offline_access';
+            // Phase 2: Request offline_access and User.Read (minimal permissions)
+            // The send permissions were already configured during app registration
+            const scope = 'https://graph.microsoft.com/User.Read offline_access';
             
             const response = await fetch(deviceCodeUrl, {
                 method: 'POST',
@@ -361,9 +362,8 @@ router.post('/oauth/poll', authenticate, requireConfigure, async (req, res) => {
                 accessToken: data.access_token,
                 refreshToken: data.refresh_token,
                 expiresAt: new Date(Date.now() + data.expires_in * 1000).toISOString(),
-                scope: apiMethod === 'graph_api' 
-                    ? 'https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access'
-                    : 'https://outlook.office365.com/SMTP.Send offline_access',
+                // Phase 2: User.Read and offline_access were requested
+                scope: 'https://graph.microsoft.com/User.Read offline_access',
                 tokenType: data.token_type || 'Bearer'
             });
             
@@ -515,7 +515,7 @@ router.post('/accounts/:accountId/refresh', authenticate, requireConfigure, asyn
                 grant_type: 'refresh_token',
                 refresh_token: tokenData.refreshToken,
                 client_id: clientId,
-                scope: tokenData.scope || 'https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access'
+                scope: tokenData.scope || 'https://graph.microsoft.com/User.Read offline_access'
             })
         });
         

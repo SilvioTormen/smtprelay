@@ -31,11 +31,12 @@ import {
   ContentCopy as CopyIcon,
   Link as LinkIcon,
   CloudUpload as CloudIcon,
-  Security as SecurityIcon
+  Security as SecurityIcon,
+  ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext-Debug';
 
-const SimpleAzureSetup = ({ onComplete, onCancel }) => {
+const SimpleAzureSetup = ({ onComplete }) => {
   const { apiRequest } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -79,7 +80,7 @@ const SimpleAzureSetup = ({ onComplete, onCancel }) => {
           if (data.success) {
             setPolling(false);
             setAdminAuthenticated(true);
-            setSuccess(`Authenticated as ${data.adminUser}`);
+            // Don't show duplicate success message, user is already shown in the UI
             setTimeout(() => setActiveStep(2), 2000);
           } else if (data.error) {
             setPolling(false);
@@ -324,6 +325,40 @@ const SimpleAzureSetup = ({ onComplete, onCancel }) => {
               </Select>
             </FormControl>
             
+            {appConfig.apiMethod === 'smtp_oauth' && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                <AlertTitle>SMTP AUTH Required</AlertTitle>
+                <Typography variant="body2">
+                  SMTP OAuth2 requires SMTP AUTH to be enabled for each mailbox.
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  <strong>To enable SMTP AUTH:</strong>
+                </Typography>
+                <Typography variant="body2" component="pre" sx={{ 
+                  mt: 1, 
+                  p: 1, 
+                  bgcolor: theme => theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.05)' 
+                    : 'rgba(0, 0, 0, 0.04)',
+                  color: theme => theme.palette.mode === 'dark'
+                    ? '#90caf9'
+                    : '#1976d2',
+                  border: theme => `1px solid ${theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.12)' 
+                    : 'rgba(0, 0, 0, 0.12)'}`,
+                  borderRadius: 1,
+                  fontSize: '0.85rem',
+                  fontFamily: 'monospace'
+                }}>
+{`Set-CASMailbox -Identity user@domain.com \\
+  -SmtpClientAuthenticationDisabled $false`}
+                </Typography>
+                <Typography variant="caption" sx={{ mt: 1, display: 'block' }}>
+                  Note: Microsoft Graph API does not require SMTP AUTH.
+                </Typography>
+              </Alert>
+            )}
+            
             {appConfig.authMethod === 'client_credentials' && (
               <>
                 <FormControlLabel
@@ -467,14 +502,32 @@ const SimpleAzureSetup = ({ onComplete, onCancel }) => {
       )}
       
       <Box display="flex" justifyContent="space-between" mt={3}>
-        <Button onClick={onCancel}>
-          Cancel
-        </Button>
-        {activeStep > 0 && activeStep < 3 && !polling && (
-          <Button onClick={() => setActiveStep(activeStep - 1)}>
-            Back
-          </Button>
-        )}
+        <Box>
+          {activeStep > 0 && activeStep < 3 && !polling && (
+            <Button 
+              variant="contained"
+              startIcon={<ArrowBackIcon />}
+              onClick={() => setActiveStep(activeStep - 1)}
+              sx={{ 
+                borderRadius: 2,
+                px: 2,
+                py: 1,
+                backgroundColor: '#9c27b0',
+                color: '#ffffff',
+                fontSize: '0.95rem',
+                fontWeight: 500,
+                textTransform: 'none',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  backgroundColor: '#7b1fa2',
+                  transform: 'translateX(-2px)'
+                }
+              }}
+            >
+              Back
+            </Button>
+          )}
+        </Box>
       </Box>
     </Paper>
   );
