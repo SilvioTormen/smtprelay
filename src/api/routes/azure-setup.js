@@ -7,6 +7,10 @@ const path = require('path');
 const yaml = require('yaml');
 const crypto = require('crypto');
 const axios = require('axios');
+const { 
+    validateTenantId,
+    validateMicrosoftUrl
+} = require('../../utils/securityValidation');
 
 // Store for active device code flows
 const activeFlows = new Map();
@@ -26,8 +30,12 @@ router.post('/setup/init', authenticate, requireConfigure, async (req, res) => {
     // This uses Microsoft's public client ID that's available in all tenants
     const publicClientId = '04b07795-8ddb-461a-bbee-02f9e1bf7b46'; // Microsoft Azure CLI
     
+    // Validate tenant ID
+    const sanitizedTenant = validateTenantId(tenantId);
+    
     // Start device code flow for admin authentication
-    const deviceCodeUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/devicecode`;
+    const deviceCodeUrl = `https://login.microsoftonline.com/${sanitizedTenant}/oauth2/v2.0/devicecode`;
+    validateMicrosoftUrl(deviceCodeUrl);
     const scope = 'https://graph.microsoft.com/Application.ReadWrite.All https://graph.microsoft.com/Directory.ReadWrite.All https://graph.microsoft.com/User.Read offline_access';
     
     const response = await axios.post(deviceCodeUrl, new URLSearchParams({
@@ -47,7 +55,7 @@ router.post('/setup/init', authenticate, requireConfigure, async (req, res) => {
     const flowId = crypto.randomBytes(16).toString('hex');
     activeFlows.set(flowId, {
       deviceCode: data.device_code,
-      tenantId,
+      tenantId: sanitizedTenant,
       clientId: publicClientId,
       scope,
       expiresAt: Date.now() + (data.expires_in * 1000)
@@ -85,7 +93,11 @@ router.post('/setup/poll', authenticate, requireConfigure, async (req, res) => {
       return res.status(400).json({ error: 'Device code expired' });
     }
     
-    const tokenUrl = `https://login.microsoftonline.com/${flow.tenantId}/oauth2/v2.0/token`;
+    // Validate stored tenant ID (should already be sanitized but double-check)
+    const sanitizedTenant = validateTenantId(flow.tenantId);
+    
+    const tokenUrl = `https://login.microsoftonline.com/${sanitizedTenant}/oauth2/v2.0/token`;
+    validateMicrosoftUrl(tokenUrl);
     
     const response = await axios.post(tokenUrl, new URLSearchParams({
       grant_type: 'urn:ietf:params:oauth:grant-type:device_code',

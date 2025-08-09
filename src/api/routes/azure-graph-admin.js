@@ -7,6 +7,10 @@ const path = require('path');
 const yaml = require('yaml');
 const crypto = require('crypto');
 const axios = require('axios');
+const { 
+    validateTenantId,
+    validateMicrosoftUrl
+} = require('../../utils/securityValidation');
 
 // Store for active admin flows
 const activeAdminFlows = new Map();
@@ -29,8 +33,12 @@ router.post('/admin/init', authenticate, requireConfigure, async (req, res) => {
     
     console.log('Starting admin auth flow with Microsoft Graph PowerShell client');
     
+    // Validate tenant ID
+    const sanitizedTenant = validateTenantId(tenantId);
+    
     // Start device code flow for admin authentication
-    const deviceCodeUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/devicecode`;
+    const deviceCodeUrl = `https://login.microsoftonline.com/${sanitizedTenant}/oauth2/v2.0/devicecode`;
+    validateMicrosoftUrl(deviceCodeUrl);
     
     // Request specific permissions needed to create applications
     // Application.ReadWrite.All is required to create new app registrations
@@ -53,7 +61,7 @@ router.post('/admin/init', authenticate, requireConfigure, async (req, res) => {
     const flowId = crypto.randomBytes(16).toString('hex');
     activeAdminFlows.set(flowId, {
       deviceCode: data.device_code,
-      tenantId,
+      tenantId: sanitizedTenant,
       clientId: graphPowerShellClientId,
       scope,
       expiresAt: Date.now() + (data.expires_in * 1000),
@@ -110,7 +118,11 @@ router.post('/admin/poll', authenticate, requireConfigure, async (req, res) => {
       });
     }
     
-    const tokenUrl = `https://login.microsoftonline.com/${flow.tenantId}/oauth2/v2.0/token`;
+    // Validate stored tenant ID (should already be sanitized but double-check)
+    const sanitizedTenant = validateTenantId(flow.tenantId);
+    
+    const tokenUrl = `https://login.microsoftonline.com/${sanitizedTenant}/oauth2/v2.0/token`;
+    validateMicrosoftUrl(tokenUrl);
     
     try {
       const response = await axios.post(tokenUrl, new URLSearchParams({

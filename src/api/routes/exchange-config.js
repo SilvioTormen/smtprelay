@@ -10,6 +10,13 @@ const { authenticate } = require('../middleware/auth');
 const { requireConfigure } = require('../middleware/rbac');
 const { getInstance: getTokenManager } = require('../../services/tokenManager');
 const AzureAppRegistrationService = require('../../services/azureAppRegistrationService');
+const { 
+    validateTenantId, 
+    validateAppId,
+    validateMicrosoftUrl,
+    sanitizeForLogging
+} = require('../../utils/securityValidation');
+const fetch = require('node-fetch');
 
 // Initialize token manager and Azure app registration service
 let tokenManager;
@@ -187,7 +194,12 @@ router.post('/oauth/init', authenticate, requireConfigure, async (req, res) => {
         
         if (authMethod === 'device_code') {
             // Start device code flow
-            const deviceCodeUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/devicecode`;
+            // Validate inputs
+            const sanitizedTenant = validateTenantId(tenantId);
+            const sanitizedClientId = validateAppId(clientId);
+            
+            const deviceCodeUrl = `https://login.microsoftonline.com/${sanitizedTenant}/oauth2/v2.0/devicecode`;
+            validateMicrosoftUrl(deviceCodeUrl);
             const scope = apiMethod === 'graph_api' 
                 ? 'https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access'
                 : 'https://outlook.office365.com/SMTP.Send offline_access';
@@ -196,7 +208,7 @@ router.post('/oauth/init', authenticate, requireConfigure, async (req, res) => {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({
-                    client_id: clientId,
+                    client_id: sanitizedClientId,
                     scope: scope
                 })
             });
@@ -219,14 +231,19 @@ router.post('/oauth/init', authenticate, requireConfigure, async (req, res) => {
             });
         } else if (authMethod === 'client_credentials') {
             // Test client credentials
-            const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+            // Validate inputs
+            const sanitizedTenant = validateTenantId(tenantId);
+            const sanitizedClientId = validateAppId(clientId);
+            
+            const tokenUrl = `https://login.microsoftonline.com/${sanitizedTenant}/oauth2/v2.0/token`;
+            validateMicrosoftUrl(tokenUrl);
             const scope = 'https://graph.microsoft.com/.default';
             
             const response = await fetch(tokenUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: new URLSearchParams({
-                    client_id: clientId,
+                    client_id: sanitizedClientId,
                     client_secret: clientSecret,
                     scope: scope,
                     grant_type: 'client_credentials'
@@ -277,7 +294,12 @@ router.post('/oauth/poll', authenticate, requireConfigure, async (req, res) => {
     try {
         const { deviceCode, tenantId, clientId } = req.body;
         
-        const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
+        // Validate inputs
+        const sanitizedTenant = validateTenantId(tenantId);
+        const sanitizedClientId = validateAppId(clientId);
+        
+        const tokenUrl = `https://login.microsoftonline.com/${sanitizedTenant}/oauth2/v2.0/token`;
+        validateMicrosoftUrl(tokenUrl);
         
         const response = await fetch(tokenUrl, {
             method: 'POST',
@@ -285,7 +307,7 @@ router.post('/oauth/poll', authenticate, requireConfigure, async (req, res) => {
             body: new URLSearchParams({
                 grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
                 device_code: deviceCode,
-                client_id: clientId
+                client_id: sanitizedClientId
             })
         });
         
@@ -889,7 +911,7 @@ router.delete('/mailboxes/:email', authenticate, requireConfigure, async (req, r
                 await tokenManager.removeAccount(account.id);
                 console.log(`Successfully deleted account tokens for: ${decodedEmail} (ID: ${account.id})`);
             } catch (tokenError) {
-                console.error(`Error deleting tokens for ${decodedEmail}:`, tokenError);
+                console.error(`Error deleting tokens for ${sanitizeForLogging(decodedEmail)}:`, tokenError);
                 // Continue even if token deletion fails
             }
         } else {

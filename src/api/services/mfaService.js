@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const crypto = require('crypto');
+const bcrypt = require('bcrypt');
 const encryptionService = require('./encryptionService');
 
 /**
@@ -183,22 +184,20 @@ class MFAService {
 
   async verifyBackupCode(userId, code) {
     const mfa = await this.getUserMFA(userId);
-    const hashedCode = this.hashCode(code);
     
-    const codeIndex = (mfa.backupCodes || []).findIndex(
-      c => !c.used && c.code === hashedCode
-    );
-    
-    if (codeIndex === -1) {
-      return false;
+    // Check each backup code using bcrypt compare
+    for (let i = 0; i < (mfa.backupCodes || []).length; i++) {
+      const backupCode = mfa.backupCodes[i];
+      if (!backupCode.used && await this.verifyCode(code, backupCode.code)) {
+        // Mark code as used
+        mfa.backupCodes[i].used = true;
+        mfa.backupCodes[i].usedAt = new Date().toISOString();
+        await this.setUserMFA(userId, { backupCodes: mfa.backupCodes });
+        return true;
+      }
     }
     
-    // Mark code as used
-    mfa.backupCodes[codeIndex].used = true;
-    mfa.backupCodes[codeIndex].usedAt = new Date().toISOString();
-    await this.setUserMFA(userId, { backupCodes: mfa.backupCodes });
-    
-    return true;
+    return false;
   }
 
   async getRemainingBackupCodes(userId) {
@@ -206,11 +205,15 @@ class MFAService {
     return (mfa.backupCodes || []).filter(c => !c.used).length;
   }
 
-  hashCode(code) {
-    return crypto
-      .createHash('sha256')
-      .update(code + (process.env.MFA_SALT || 'default-salt'))
-      .digest('hex');
+  async hashCode(code) {
+    // Use bcrypt for secure hashing instead of SHA256
+    const saltRounds = 10;
+    return await bcrypt.hash(code, saltRounds);
+  }
+
+  async verifyCode(code, hashedCode) {
+    // Use bcrypt compare for verification
+    return await bcrypt.compare(code, hashedCode);
   }
 
   async enforceMFA(userId, enforce = true) {

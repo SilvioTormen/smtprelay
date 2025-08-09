@@ -8,6 +8,7 @@ const { Client } = require('@microsoft/microsoft-graph-client');
 const { TokenCredentialAuthenticationProvider } = require('@microsoft/microsoft-graph-client/authProviders/azureTokenCredentials');
 const express = require('express');
 const crypto = require('crypto');
+const { sanitizeForLogging } = require('../utils/securityValidation');
 const fs = require('fs').promises;
 const path = require('path');
 
@@ -45,8 +46,8 @@ class OAuth2FlowManager {
     }
     
     this.logger.info('Starting Device Code Flow...');
-    this.logger.info(`Tenant ID: ${tenantId}`);
-    this.logger.info(`Client ID: ${clientId}`);
+    this.logger.info(`Tenant ID: ${tenantId.substring(0, 8)}...`);
+    this.logger.info(`Client ID: ${clientId.substring(0, 8)}...`);
     
     const credential = new DeviceCodeCredential({
       tenantId,
@@ -98,7 +99,7 @@ class OAuth2FlowManager {
         this.logger.info('Using hybrid mode with both scopes');
       }
       
-      this.logger.info(`Requesting scopes: ${scopes.join(', ')}`);
+      this.logger.info(`Requesting scopes: ${scopes.length} scope(s)`);
       
       // Request token with appropriate scopes
       const tokenResponse = await credential.getToken(scopes);
@@ -123,7 +124,7 @@ class OAuth2FlowManager {
         };
       }
     } catch (error) {
-      this.logger.error(`Device Code Flow failed: ${error.message}`);
+      this.logger.error(`Device Code Flow failed: ${sanitizeForLogging(error.message)}`);
       
       // Provide more detailed error information
       if (error.message && error.message.includes('invalid_grant')) {
@@ -133,8 +134,8 @@ class OAuth2FlowManager {
         console.error('2. The Client ID is not valid for this tenant');
         console.error('3. The application is not properly registered in Azure AD');
         console.error('\nPlease verify:');
-        console.error(`- Tenant ID: ${tenantId} (should be like "12345678-1234-1234-1234-123456789012" or "common")`);
-        console.error(`- Client ID: ${clientId} (should be the Application ID from Azure AD)`);
+        console.error(`- Tenant ID: ${tenantId.substring(0, 8)}... (should be like "12345678-1234-1234-1234-123456789012" or "common")`);
+        console.error(`- Client ID: ${clientId.substring(0, 8)}... (should be the Application ID from Azure AD)`);
         console.error('- The app has "SMTP.Send" API permission in Azure AD');
         console.error('- Public client flow is enabled in Azure AD app settings\n');
       } else if (error.message && error.message.includes('AADSTS')) {
@@ -151,7 +152,7 @@ class OAuth2FlowManager {
         console.error('\nPlease check:');
         console.error('- Internet connectivity');
         console.error('- Firewall allows HTTPS to login.microsoftonline.com');
-        console.error(`- Tenant ID format: "${tenantId}"`);
+        console.error(`- Tenant ID format: "${tenantId.substring(0, 8)}..."`);
       }
       
       throw error;
