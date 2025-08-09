@@ -99,21 +99,12 @@ exchange_online:
   
   # OAuth2 Authentication (für beide Methoden):
   auth:
-    method: "device_code"  # Options: device_code, client_credentials, authorization_code
+    method: "device_code"  # Options: device_code, authorization_code
     tenant_id: "your-tenant-id"  # Or "common" for multi-tenant
     client_id: "your-client-id"  # Azure AD App ID
     send_as: "relay@yourdomain.com"  # Optional: default sender
   
-  # Option 2: Client Credentials Flow (For automated services)
-  # No user interaction required - uses application permissions
-  # auth:
-  #   method: "client_credentials"
-  #   tenant_id: "your-tenant-id"
-  #   client_id: "your-client-id"
-  #   client_secret: "your-client-secret"  # Required for this flow
-  #   send_as: "relay@yourdomain.com"  # Required: sender email
-  
-  # Option 3: Authorization Code Flow (For web dashboard)
+  # Option 2: Authorization Code Flow (For web dashboard)
   # Interactive browser-based authentication
   # auth:
   #   method: "authorization_code"

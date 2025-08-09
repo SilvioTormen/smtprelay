@@ -16,7 +16,6 @@ router.post('/save-config', authenticate, requireConfigure, async (req, res) => 
     const { 
       tenantId, 
       clientId, 
-      clientSecret,
       authMethod = 'device_code',
       apiMethod = 'graph_api'
     } = req.body;
@@ -51,9 +50,6 @@ router.post('/save-config', authenticate, requireConfigure, async (req, res) => 
       api_method: apiMethod
     };
     
-    if (clientSecret && authMethod === 'client_credentials') {
-      fullConfig.exchange_online.auth.client_secret = clientSecret;
-    }
     
     await fs.writeFile(configPath, yaml.stringify(fullConfig), 'utf8');
     
@@ -65,11 +61,8 @@ router.post('/save-config', authenticate, requireConfigure, async (req, res) => 
         clientId,
         authMethod,
         apiMethod,
-        hasSecret: !!clientSecret
       },
-      nextStep: authMethod === 'device_code' ? 
-        'You can now authenticate with the Device Code Flow' : 
-        'Application is ready to use with Client Credentials'
+      nextStep: 'You can now authenticate with the Device Code Flow'
     });
   } catch (error) {
     console.error('Save config error:', error);
@@ -130,36 +123,8 @@ router.get('/instructions', authenticate, requireConfigure, (req, res) => {
     }
   ];
   
-  const clientCredentialsInstructions = [
-    ...baseInstructions,
-    {
-      step: 4,
-      title: 'Skip Redirect URI',
-      description: 'No redirect URI needed for client credentials flow'
-    },
-    {
-      step: 5,
-      title: 'Configure API Permissions',
-      description: 'Add permission > Microsoft Graph > Application permissions',
-      permissions: ['Mail.Send'],
-      important: 'Grant admin consent after adding permissions!'
-    },
-    {
-      step: 6,
-      title: 'Create Client Secret',
-      description: 'Go to Certificates & secrets > New client secret',
-      details: 'Description: "SMTP Relay Secret", Expiry: Choose up to 2 years (Microsoft limit)',
-      warning: 'Copy the secret value immediately - it won\'t be shown again!'
-    },
-    {
-      step: 7,
-      title: 'Copy Credentials',
-      description: 'Copy both Application (client) ID and the Client Secret value'
-    }
-  ];
   
-  const instructions = authMethod === 'client_credentials' ? 
-    clientCredentialsInstructions : deviceCodeInstructions;
+  const instructions = deviceCodeInstructions;
   
   res.json({
     authMethod,

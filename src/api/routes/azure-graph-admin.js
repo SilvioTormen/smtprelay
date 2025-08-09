@@ -221,8 +221,6 @@ router.post('/admin/create-app', authenticate, requireConfigure, async (req, res
     
     const {
       displayName = 'SMTP Relay for Exchange Online',
-      useClientSecret = false,
-      clientSecretExpiry = 365,
       authMethod = 'device_code',
       apiMethod = 'graph_api'
     } = appConfig || {};
@@ -238,24 +236,14 @@ router.post('/admin/create-app', authenticate, requireConfigure, async (req, res
       requiredResourceAccess: []
     };
     
-    // Configure for Device Code Flow or Client Credentials
-    if (authMethod === 'device_code') {
-      appPayload.publicClient = {
-        redirectUris: [
-          'https://login.microsoftonline.com/common/oauth2/nativeclient',
-          'http://localhost'
-        ]
-      };
-      appPayload.isFallbackPublicClient = true;
-    } else {
-      appPayload.web = {
-        redirectUris: [],
-        implicitGrantSettings: {
-          enableAccessTokenIssuance: false,
-          enableIdTokenIssuance: false
-        }
-      };
-    }
+    // Configure for Device Code Flow
+    appPayload.publicClient = {
+      redirectUris: [
+        'https://login.microsoftonline.com/common/oauth2/nativeclient',
+        'http://localhost'
+      ]
+    };
+    appPayload.isFallbackPublicClient = true;
     
     // Configure permissions based on API method and auth method
     if (apiMethod === 'graph_api') {
@@ -264,23 +252,15 @@ router.post('/admin/create-app', authenticate, requireConfigure, async (req, res
         resourceAccess: []
       };
       
-      if (authMethod === 'client_credentials') {
-        // Application permissions for client credentials
-        graphPermissions.resourceAccess.push({
-          id: 'b633e1c5-b582-4048-a93e-9f11b44c7e96', // Mail.Send (Application)
-          type: 'Role'
-        });
-      } else {
-        // Delegated permissions for device code flow
-        graphPermissions.resourceAccess.push({
-          id: 'e383f46e-2787-4529-855e-0e479a3ffac0', // Mail.Send (Delegated) - correct ID
-          type: 'Scope'
-        });
-        graphPermissions.resourceAccess.push({
-          id: 'e1fe6dd8-ba31-4d61-89e7-88639da4683d', // User.Read
-          type: 'Scope'
-        });
-      }
+      // Delegated permissions for device code flow
+      graphPermissions.resourceAccess.push({
+        id: 'e383f46e-2787-4529-855e-0e479a3ffac0', // Mail.Send (Delegated)
+        type: 'Scope'
+      });
+      graphPermissions.resourceAccess.push({
+        id: 'e1fe6dd8-ba31-4d61-89e7-88639da4683d', // User.Read
+        type: 'Scope'
+      });
       
       appPayload.requiredResourceAccess.push(graphPermissions);
     } else {
@@ -308,7 +288,7 @@ router.post('/admin/create-app', authenticate, requireConfigure, async (req, res
       // SMTP.Send permission - add to Graph permissions
       graphPermissions.resourceAccess.push({
         id: '258f6531-6087-4cc4-bb90-092c5fb3ed3f', // SMTP.Send
-        type: authMethod === 'client_credentials' ? 'Role' : 'Scope'
+        type: 'Scope'
       });
       
       appPayload.requiredResourceAccess.push(graphPermissions);
@@ -344,61 +324,7 @@ router.post('/admin/create-app', authenticate, requireConfigure, async (req, res
         console.warn('Service principal creation warning:', spError.message);
       }
       
-      let clientSecret = null;
       
-      // Create client secret if requested (only for client_credentials)
-      if (useClientSecret && authMethod === 'client_credentials') {
-        console.log('Creating client secret...');
-        const secretUrl = `https://graph.microsoft.com/v1.0/applications/${app.id}/addPassword`;
-        const expiryDate = new Date();
-        expiryDate.setDate(expiryDate.getDate() + clientSecretExpiry);
-        
-        try {
-          const secretResponse = await axios.post(secretUrl, {
-            passwordCredential: {
-              displayName: 'SMTP Relay Secret',
-              endDateTime: expiryDate.toISOString()
-            }
-          }, {
-            headers: {
-              'Authorization': `Bearer ${flow.adminToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          clientSecret = secretResponse.data.secretText;
-          console.log('Client secret created');
-        } catch (secretError) {
-          console.error('Client secret creation failed:', secretError.message);
-        }
-      }
-      
-      // If using application permissions, we need to grant admin consent
-      let consentUrl = null;
-      if (authMethod === 'client_credentials') {
-        consentUrl = `https://login.microsoftonline.com/${flow.tenantId}/adminconsent?client_id=${app.appId}`;
-        console.log('Admin consent required at:', consentUrl);
-        
-        // Try to grant consent programmatically
-        try {
-          // Note: This might not work directly, but we try
-          const oauth2PermissionGrant = {
-            clientId: app.appId,
-            consentType: 'AllPrincipals',
-            resourceId: '00000003-0000-0000-c000-000000000000', // Microsoft Graph
-            scope: 'Mail.Send'
-          };
-          
-          await axios.post('https://graph.microsoft.com/v1.0/oauth2PermissionGrants', oauth2PermissionGrant, {
-            headers: {
-              'Authorization': `Bearer ${flow.adminToken}`,
-              'Content-Type': 'application/json'
-            }
-          });
-          console.log('Admin consent granted programmatically');
-        } catch (consentError) {
-          console.log('Could not grant consent programmatically, manual consent required');
-        }
-      }
       
       // Save configuration
       const configPath = path.join(process.cwd(), 'config.yml');
@@ -424,9 +350,6 @@ router.post('/admin/create-app', authenticate, requireConfigure, async (req, res
         api_method: apiMethod
       };
       
-      if (clientSecret) {
-        fullConfig.exchange_online.auth.client_secret = clientSecret;
-      }
       
       await fs.writeFile(configPath, yaml.stringify(fullConfig), 'utf8');
       console.log('Configuration saved to config.yml');
@@ -443,11 +366,7 @@ router.post('/admin/create-app', authenticate, requireConfigure, async (req, res
           displayName: app.displayName,
           tenantId: flow.tenantId
         },
-        clientSecret: clientSecret ? '***SAVED IN CONFIG***' : null,
-        consentUrl: consentUrl,
-        nextSteps: authMethod === 'client_credentials' 
-          ? 'Please grant admin consent using the URL provided'
-          : 'Application is ready for Device Code authentication'
+        nextSteps: 'Application is ready for Device Code authentication'
       });
       
     } catch (createError) {

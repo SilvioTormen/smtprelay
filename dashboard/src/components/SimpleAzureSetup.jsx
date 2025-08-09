@@ -32,7 +32,8 @@ import {
   Link as LinkIcon,
   CloudUpload as CloudIcon,
   Security as SecurityIcon,
-  ArrowBack as ArrowBackIcon
+  ArrowBack as ArrowBackIcon,
+  Key as KeyIcon
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext-Debug';
 
@@ -54,9 +55,7 @@ const SimpleAzureSetup = ({ onComplete }) => {
   const [appConfig, setAppConfig] = useState({
     displayName: 'SMTP Relay for Exchange Online',
     authMethod: 'device_code',
-    apiMethod: 'graph_api',
-    useClientSecret: false,
-    clientSecretExpiry: 365
+    apiMethod: 'graph_api'
   });
   
   const [appCreated, setAppCreated] = useState(null);
@@ -298,20 +297,21 @@ const SimpleAzureSetup = ({ onComplete }) => {
               helperText="Display name for your Azure AD application"
             />
             
-            <FormControl fullWidth margin="normal">
-              <InputLabel>Authentication Method</InputLabel>
-              <Select
-                value={appConfig.authMethod}
-                onChange={(e) => setAppConfig({ ...appConfig, authMethod: e.target.value })}
-                label="Authentication Method"
-              >
-                <MenuItem value="device_code">Device Code Flow (User Context)</MenuItem>
-                <MenuItem value="client_credentials">Client Credentials (App-Only)</MenuItem>
-              </Select>
-              <FormHelperText>
-                Device Code: Send as specific user | Client Credentials: Send as any user
-              </FormHelperText>
-            </FormControl>
+            <Paper sx={{ p: 2, mt: 2, mb: 2, bgcolor: 'background.default' }}>
+              <Box display="flex" alignItems="center" gap={1} mb={1}>
+                <KeyIcon color="primary" />
+                <Typography variant="subtitle2" fontWeight="medium">
+                  Authentication Method
+                </Typography>
+              </Box>
+              <Typography variant="body1" gutterBottom>
+                Device Code Flow
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Interactive authentication where users sign in through a browser using their Microsoft account.
+                This provides user-specific mail sending capabilities.
+              </Typography>
+            </Paper>
             
             <FormControl fullWidth margin="normal">
               <InputLabel>API Method</InputLabel>
@@ -359,36 +359,6 @@ const SimpleAzureSetup = ({ onComplete }) => {
               </Alert>
             )}
             
-            {appConfig.authMethod === 'client_credentials' && (
-              <>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={appConfig.useClientSecret}
-                      onChange={(e) => setAppConfig({ ...appConfig, useClientSecret: e.target.checked })}
-                    />
-                  }
-                  label="Create Client Secret"
-                  sx={{ mt: 2 }}
-                />
-                
-                {appConfig.useClientSecret && (
-                  <FormControl fullWidth margin="normal">
-                    <InputLabel>Secret Expiry</InputLabel>
-                    <Select
-                      value={appConfig.clientSecretExpiry}
-                      onChange={(e) => setAppConfig({ ...appConfig, clientSecretExpiry: e.target.value })}
-                      label="Secret Expiry"
-                    >
-                      <MenuItem value={90}>3 Months</MenuItem>
-                      <MenuItem value={180}>6 Months</MenuItem>
-                      <MenuItem value={365}>1 Year</MenuItem>
-                      <MenuItem value={730}>2 Years (Maximum)</MenuItem>
-                    </Select>
-                  </FormControl>
-                )}
-              </>
-            )}
             
             <Button
               variant="contained"
@@ -422,7 +392,7 @@ const SimpleAzureSetup = ({ onComplete }) => {
                   <ListItem>
                     <ListItemText 
                       primary="Authentication Method"
-                      secondary={appConfig.authMethod === 'device_code' ? 'Device Code Flow' : 'Client Credentials'}
+                      secondary="Device Code Flow"
                     />
                   </ListItem>
                   <ListItem>
@@ -431,14 +401,6 @@ const SimpleAzureSetup = ({ onComplete }) => {
                       secondary={appConfig.apiMethod === 'graph_api' ? 'Microsoft Graph' : 'SMTP OAuth2'}
                     />
                   </ListItem>
-                  {appConfig.useClientSecret && (
-                    <ListItem>
-                      <ListItemText 
-                        primary="Client Secret"
-                        secondary={`Expires in ${appConfig.clientSecretExpiry} days`}
-                      />
-                    </ListItem>
-                  )}
                 </List>
               </CardContent>
             </Card>

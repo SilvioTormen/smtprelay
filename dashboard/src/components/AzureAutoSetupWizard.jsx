@@ -69,8 +69,8 @@ const AzureAutoSetupWizard = ({ onComplete, onCancel }) => {
     redirectUris: ['http://localhost:3001/auth/callback'],
     useClientSecret: false,
     clientSecretExpiry: 365, // days
-    authMethod: 'device_code', // 'device_code' or 'client_credentials'
-    apiMethod: 'graph_api', // 'graph_api' or 'smtp_oauth'
+    authMethod: 'device_code',
+    apiMethod: 'graph_api',
     permissions: {
       delegated: ['User.Read', 'Mail.Send'],
       application: ['Mail.Send']

@@ -186,9 +186,6 @@ router.post('/oauth/init', authenticate, requireConfigure, async (req, res) => {
             api_method: apiMethod || 'graph_api'
         };
         
-        if (authMethod === 'client_credentials' && clientSecret) {
-            fullConfig.exchange_online.auth.client_secret = clientSecret;
-        }
         
         // Save complete config
         await fs.writeFile(configPath, yaml.stringify(fullConfig), 'utf8');
@@ -229,53 +226,6 @@ router.post('/oauth/init', authenticate, requireConfigure, async (req, res) => {
                 expiresIn: data.expires_in,
                 interval: data.interval,
                 message: data.message
-            });
-        } else if (authMethod === 'client_credentials') {
-            // Test client credentials
-            // Validate inputs
-            const sanitizedTenant = validateTenantId(tenantId);
-            const sanitizedClientId = validateAppId(clientId);
-            
-            const tokenUrl = `https://login.microsoftonline.com/${sanitizedTenant}/oauth2/v2.0/token`;
-            validateMicrosoftUrl(tokenUrl);
-            const scope = 'https://graph.microsoft.com/.default';
-            
-            const response = await fetch(tokenUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                    client_id: sanitizedClientId,
-                    client_secret: clientSecret,
-                    scope: scope,
-                    grant_type: 'client_credentials'
-                })
-            });
-            
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error_description || data.error);
-            }
-            
-            // Save tokens using TokenManager
-            if (!tokenManager) {
-                tokenManager = getTokenManager(console);
-            }
-            
-            await tokenManager.saveAccountTokens({
-                tenantId,
-                clientId,
-                accessToken: data.access_token,
-                refreshToken: data.refresh_token,
-                expiresAt: new Date(Date.now() + data.expires_in * 1000).toISOString(),
-                scope: scope,
-                tokenType: data.token_type || 'Bearer'
-            });
-            
-            res.json({
-                success: true,
-                method: 'client_credentials',
-                message: 'Authentication successful!'
             });
         } else {
             res.json({

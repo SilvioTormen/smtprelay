@@ -41,24 +41,11 @@ class SetupWizard {
       // Load existing config
       await this.loadConfig();
 
-      // Choose authentication method
-      const authMethod = await this.chooseAuthMethod();
-
       // Get Azure AD details
       await this.getAzureDetails();
 
-      // Configure based on chosen method
-      switch (authMethod) {
-        case 'device_code':
-          await this.setupDeviceCode();
-          break;
-        case 'client_credentials':
-          await this.setupClientCredentials();
-          break;
-        case 'authorization_code':
-          await this.setupAuthorizationCode();
-          break;
-      }
+      // Configure device code flow
+      await this.setupDeviceCode();
 
       // Save configuration
       await this.saveConfig();
@@ -87,41 +74,6 @@ class SetupWizard {
     }
   }
 
-  async chooseAuthMethod() {
-    console.log('📋 Choose Authentication Method:');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-    console.log('1. Device Code Flow (Recommended for server setup)');
-    console.log('   - Perfect for headless servers');
-    console.log('   - Authenticate using code on another device');
-    console.log('   - User delegated permissions\n');
-    
-    console.log('2. Client Credentials Flow (For automated services)');
-    console.log('   - No user interaction required');
-    console.log('   - Application permissions');
-    console.log('   - Requires client secret\n');
-    
-    console.log('3. Authorization Code Flow (For web dashboard)');
-    console.log('   - Interactive browser-based login');
-    console.log('   - User delegated permissions');
-    console.log('   - Best for web applications\n');
-
-    const choice = await question('Enter your choice (1-3): ');
-    
-    const methods = {
-      '1': 'device_code',
-      '2': 'client_credentials',
-      '3': 'authorization_code'
-    };
-
-    const method = methods[choice];
-    if (!method) {
-      throw new Error('Invalid choice');
-    }
-
-    this.config.exchange_online.auth.method = method;
-    console.log(`\n✓ Selected: ${method}\n`);
-    return method;
-  }
 
   async getAzureDetails() {
     console.log('🔐 Azure AD Configuration:');
@@ -192,6 +144,7 @@ class SetupWizard {
         break;
     }
     
+    this.config.exchange_online.auth.method = 'device_code';
     this.config.exchange_online.method = apiMethod;
     
     console.log('📋 Required Azure AD Configuration:');
@@ -231,77 +184,6 @@ class SetupWizard {
     }
   }
 
-  async setupClientCredentials() {
-    console.log('🔑 Client Credentials Flow Setup:');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
-
-    // Ask which API to use
-    console.log('🎯 Which API method do you want to use?\n');
-    console.log('1. Microsoft Graph API (✅ RECOMMENDED)');
-    console.log('   Required: Mail.Send (Application permission)\n');
-    
-    console.log('2. SMTP Protocol with OAuth2 (⚠️ Legacy)');
-    console.log('   Required: SMTP.Send + Mailbox with SMTP Auth enabled\n');
-    
-    const apiChoice = await question('Select API method (1-2) [1]: ') || '1';
-    
-    if (apiChoice === '1') {
-      this.config.exchange_online.method = 'graph_api';
-      console.log('\n✅ Using Microsoft Graph API\n');
-    } else {
-      this.config.exchange_online.method = 'smtp_oauth2';
-      console.log('\n⚠️  Using SMTP OAuth2 (Legacy)\n');
-    }
-    
-    console.log('Prerequisites:');
-    if (apiChoice === '1') {
-      console.log('1. Azure AD App with "Mail.Send" application permission (Microsoft Graph)');
-    } else {
-      console.log('1. Azure AD App with "SMTP.Send" permission (Office 365 Exchange)');
-      console.log('   AND a mailbox with SMTP Auth enabled');
-    }
-    console.log('2. Client secret created in Azure AD');
-    console.log('3. Admin consent granted\n');
-
-    // Client Secret
-    const currentSecret = this.config.exchange_online.auth.client_secret;
-    const secretPrompt = currentSecret
-      ? 'Client Secret [****]: '
-      : 'Client Secret: ';
-    
-    const clientSecret = await question(secretPrompt) || currentSecret;
-    if (!clientSecret) {
-      throw new Error('Client Secret is required for this flow');
-    }
-    this.config.exchange_online.auth.client_secret = clientSecret;
-
-    // Send-as email
-    const sendAs = await question('Send-as email address: ');
-    if (!sendAs) {
-      throw new Error('Send-as email is required for application permissions');
-    }
-    this.config.exchange_online.auth.send_as = sendAs;
-
-    // Test authentication
-    const test = await question('\nTest authentication now? (y/n): ');
-    if (test.toLowerCase() === 'y') {
-      const oauth2Manager = new OAuth2FlowManager(this.config.exchange_online, logger);
-      
-      try {
-        console.log('\nTesting Client Credentials authentication...');
-        const result = await oauth2Manager.getClientCredentialsToken();
-        
-        if (result.success) {
-          console.log('✅ Authentication test successful!');
-        }
-      } catch (error) {
-        console.error('❌ Authentication test failed:', error.message);
-        throw error;
-      }
-    }
-
-    console.log('\n✓ Client Credentials configured\n');
-  }
 
   async setupAuthorizationCode() {
     console.log('🌐 Authorization Code Flow Setup:');

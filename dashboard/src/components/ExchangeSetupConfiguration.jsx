@@ -206,87 +206,23 @@ const ExchangeSetupConfiguration = ({ config, onChange, mode = 'setup' }) => {
         <AccordionDetails>
           <Grid container spacing={3}>
             <Grid item xs={12}>
-              <FormControl fullWidth>
-                <InputLabel>Authentication Method</InputLabel>
-                <Select
-                  value={config.authMethod || 'device_code'}
-                  onChange={(e) => handleChange('authMethod', e.target.value)}
-                  label="Authentication Method"
-                >
-                  <MenuItem value="device_code">
-                    <Box>
-                      <Typography variant="body2">Device Code Flow</Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        Interactive authentication with user accounts
-                      </Typography>
-                    </Box>
-                  </MenuItem>
-                  <MenuItem value="client_credentials">
-                    <Box>
-                      <Typography variant="body2">Client Credentials</Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        Service-to-service authentication with client secret
-                      </Typography>
-                    </Box>
-                  </MenuItem>
-                </Select>
-                <FormHelperText>
-                  Device Code Flow allows user-specific mail sending, Client Credentials allows sending as any user
-                </FormHelperText>
-              </FormControl>
+              <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+                <Box display="flex" alignItems="center" gap={1} mb={1}>
+                  <KeyIcon color="primary" />
+                  <Typography variant="subtitle2" fontWeight="medium">
+                    Authentication Method
+                  </Typography>
+                </Box>
+                <Typography variant="body1" gutterBottom>
+                  Device Code Flow
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Interactive authentication with user accounts. Users will authenticate through a browser
+                  using their Microsoft account credentials.
+                </Typography>
+              </Paper>
             </Grid>
 
-            {config.authMethod === 'client_credentials' && (
-              <>
-                <Grid item xs={12}>
-                  <Alert severity="info" sx={{ mb: 2 }}>
-                    <AlertTitle>Client Secret Configuration</AlertTitle>
-                    Choose whether to create a client secret and its expiration period
-                  </Alert>
-                </Grid>
-                <Grid item xs={12}>
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={config.useClientSecret || false}
-                        onChange={(e) => handleChange('useClientSecret', e.target.checked)}
-                      />
-                    }
-                    label="Create Client Secret"
-                  />
-                </Grid>
-                {config.useClientSecret && (
-                  <Grid item xs={12} md={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Secret Expiration</InputLabel>
-                      <Select
-                        value={config.clientSecretExpiry || 365}
-                        onChange={(e) => handleChange('clientSecretExpiry', e.target.value)}
-                        label="Secret Expiration"
-                        startAdornment={
-                          <InputAdornment position="start">
-                            <TimerIcon />
-                          </InputAdornment>
-                        }
-                      >
-                        <MenuItem value={90}>3 Months</MenuItem>
-                        <MenuItem value={180}>6 Months (Recommended)</MenuItem>
-                        <MenuItem value={365}>1 Year</MenuItem>
-                        <MenuItem value={730}>2 Years (Maximum)</MenuItem>
-                      </Select>
-                      <FormHelperText>
-                        {config.clientSecretExpiry === -1 && (
-                          <Typography color="warning.main" variant="caption">
-                            <WarningIcon sx={{ fontSize: 12, mr: 0.5 }} />
-                            Non-expiring secrets are a security risk
-                          </Typography>
-                        )}
-                      </FormHelperText>
-                    </FormControl>
-                  </Grid>
-                )}
-              </>
-            )}
 
             <Grid item xs={12}>
               <FormControl fullWidth>
@@ -330,50 +266,28 @@ const ExchangeSetupConfiguration = ({ config, onChange, mode = 'setup' }) => {
               </Alert>
             </Grid>
 
-            {config.authMethod === 'device_code' && (
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Delegated Permissions (User Context)
-                </Typography>
-                <List dense>
-                  <ListItem>
-                    <Checkbox checked disabled />
-                    <ListItemText 
-                      primary="User.Read"
-                      secondary="Sign in and read user profile"
-                    />
-                  </ListItem>
-                  <ListItem>
-                    <Checkbox checked disabled />
-                    <ListItemText 
-                      primary="Mail.Send"
-                      secondary="Send mail as the signed-in user"
-                    />
-                  </ListItem>
-                </List>
-              </Grid>
-            )}
+            <Grid item xs={12}>
+              <Typography variant="subtitle2" gutterBottom>
+                Delegated Permissions (User Context)
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <Checkbox checked disabled />
+                  <ListItemText 
+                    primary="User.Read"
+                    secondary="Sign in and read user profile"
+                  />
+                </ListItem>
+                <ListItem>
+                  <Checkbox checked disabled />
+                  <ListItemText 
+                    primary="Mail.Send"
+                    secondary="Send mail as the signed-in user"
+                  />
+                </ListItem>
+              </List>
+            </Grid>
 
-            {config.authMethod === 'client_credentials' && (
-              <Grid item xs={12}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Application Permissions (App-Only)
-                </Typography>
-                <List dense>
-                  <ListItem>
-                    <Checkbox checked disabled />
-                    <ListItemText 
-                      primary="Mail.Send"
-                      secondary="Send mail as any user (requires admin consent)"
-                    />
-                  </ListItem>
-                </List>
-                <Alert severity="warning" sx={{ mt: 2 }}>
-                  <AlertTitle>Admin Consent Required</AlertTitle>
-                  Application permissions require Global Administrator approval
-                </Alert>
-              </Grid>
-            )}
 
             <Grid item xs={12}>
               <FormControlLabel
@@ -484,7 +398,7 @@ const ExchangeSetupConfiguration = ({ config, onChange, mode = 'setup' }) => {
           <Grid item xs={12} sm={6}>
             <Typography variant="caption" color="textSecondary">Authentication</Typography>
             <Typography variant="body2">
-              {config.authMethod === 'client_credentials' ? 'Client Credentials' : 'Device Code Flow'}
+              Device Code Flow
             </Typography>
           </Grid>
           <Grid item xs={12} sm={6}>
@@ -493,16 +407,6 @@ const ExchangeSetupConfiguration = ({ config, onChange, mode = 'setup' }) => {
               {config.apiMethod === 'smtp_oauth' ? 'SMTP OAuth2' : 'Microsoft Graph'}
             </Typography>
           </Grid>
-          {config.authMethod === 'client_credentials' && (
-            <Grid item xs={12} sm={6}>
-              <Typography variant="caption" color="textSecondary">Client Secret</Typography>
-              <Typography variant="body2">
-                {config.useClientSecret 
-                  ? `Expires in ${config.clientSecretExpiry} days` 
-                  : 'Not configured'}
-              </Typography>
-            </Grid>
-          )}
         </Grid>
       </Paper>
     </Box>

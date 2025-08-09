@@ -17,7 +17,6 @@ const path = require('path');
  * Supports multiple authentication flows:
  * - Device Code Flow (for headless server setup)
  * - Authorization Code Flow (for web dashboard)
- * - Client Credentials Flow (for service-to-service)
  */
 class OAuth2FlowManager {
   constructor(config, logger) {
@@ -353,48 +352,6 @@ class OAuth2FlowManager {
     this.logger.info('Authorization Code Flow endpoints configured');
   }
 
-  /**
-   * Client Credentials Flow - Service-to-service authentication
-   * No user interaction required
-   */
-  async getClientCredentialsToken() {
-    const tenantId = this.config.auth.tenant_id;
-    const clientId = this.config.auth.client_id;
-    const clientSecret = this.config.auth.client_secret;
-
-    const credential = new ClientSecretCredential(
-      tenantId,
-      clientId,
-      clientSecret
-    );
-
-    try {
-      const tokenResponse = await credential.getToken([
-        'https://outlook.office365.com/.default'
-      ]);
-
-      if (tokenResponse) {
-        this.logger.info('Client Credentials token obtained successfully');
-        
-        await this.saveTokens({
-          accessToken: tokenResponse.token,
-          expiresOn: tokenResponse.expiresOnTimestamp,
-          authMethod: 'client_credentials',
-          clientId,
-          tenantId
-        });
-
-        return {
-          success: true,
-          accessToken: tokenResponse.token,
-          expiresOn: tokenResponse.expiresOnTimestamp
-        };
-      }
-    } catch (error) {
-      this.logger.error(`Client Credentials Flow failed: ${error.message}`);
-      throw error;
-    }
-  }
 
   /**
    * Get current valid token or refresh if needed
@@ -419,11 +376,8 @@ class OAuth2FlowManager {
       // Token expired or expiring soon - need to refresh
       this.logger.info('Token expired or expiring soon, attempting refresh...');
       
-      // Refresh based on auth method
-      if (tokens.authMethod === 'client_credentials') {
-        const result = await this.getClientCredentialsToken();
-        return result.accessToken;
-      } else if (tokens.refreshToken) {
+      // Refresh using refresh token for device code or auth code flows
+      if (tokens.refreshToken) {
         // Use refresh token for device code or auth code flows
         return await this.refreshWithToken(tokens.refreshToken);
       } else {

@@ -36,7 +36,7 @@ import { useAuth } from '../contexts/AuthContext-Debug';
 
 const ManualAzureSetup = ({ onComplete, onBack }) => {
   const { apiRequest } = useAuth();
-  const [activeStep, setActiveStep] = useState(0);
+  const [activeStep, setActiveStep] = useState(0); // Start with Azure Portal Setup
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
@@ -45,12 +45,11 @@ const ManualAzureSetup = ({ onComplete, onBack }) => {
   const [config, setConfig] = useState({
     tenantId: '',
     clientId: '',
-    clientSecret: '',
     authMethod: 'device_code',
     apiMethod: 'graph_api'
   });
   
-  const steps = ['Choose Auth Method', 'Azure Portal Setup', 'Enter Credentials', 'Save Configuration'];
+  const steps = ['Azure Portal Setup', 'Enter Credentials', 'Save Configuration'];
   
   const copyToClipboard = (text) => {
     navigator.clipboard.writeText(text);
@@ -88,71 +87,8 @@ const ManualAzureSetup = ({ onComplete, onBack }) => {
   
   const renderStepContent = () => {
     switch (activeStep) {
-      case 0: // Choose Auth Method
-        return (
-          <Box>
-            <Typography variant="h6" gutterBottom>
-              Choose Authentication Method
-            </Typography>
-            
-            <Card 
-              sx={{ 
-                mt: 2, 
-                cursor: 'pointer',
-                border: config.authMethod === 'device_code' ? '2px solid' : '1px solid',
-                borderColor: config.authMethod === 'device_code' ? 'primary.main' : 'divider'
-              }}
-              onClick={() => setConfig({ ...config, authMethod: 'device_code' })}
-            >
-              <CardContent>
-                <Typography variant="h6" color="primary">
-                  Device Code Flow (Recommended)
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  • Users authenticate with their own account
-                  • Each user needs to authenticate individually
-                  • More secure - no shared credentials
-                  • Perfect for multi-user environments
-                </Typography>
-                <Chip label="User Context" color="success" size="small" sx={{ mt: 1 }} />
-              </CardContent>
-            </Card>
-            
-            <Card 
-              sx={{ 
-                mt: 2, 
-                cursor: 'pointer',
-                border: config.authMethod === 'client_credentials' ? '2px solid' : '1px solid',
-                borderColor: config.authMethod === 'client_credentials' ? 'primary.main' : 'divider'
-              }}
-              onClick={() => setConfig({ ...config, authMethod: 'client_credentials' })}
-            >
-              <CardContent>
-                <Typography variant="h6" color="primary">
-                  Client Credentials Flow
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  • App authenticates without user interaction
-                  • Can send emails as any user in the organization
-                  • Requires admin consent
-                  • Good for automated services
-                </Typography>
-                <Chip label="App-Only" color="warning" size="small" sx={{ mt: 1 }} />
-              </CardContent>
-            </Card>
-            
-            <Button
-              variant="contained"
-              fullWidth
-              sx={{ mt: 3 }}
-              onClick={() => setActiveStep(1)}
-            >
-              Continue with {config.authMethod === 'device_code' ? 'Device Code' : 'Client Credentials'}
-            </Button>
-          </Box>
-        );
         
-      case 1: // Azure Portal Setup
+      case 0: // Azure Portal Setup
         return (
           <Box>
             <Typography variant="h6" gutterBottom>
@@ -160,6 +96,11 @@ const ManualAzureSetup = ({ onComplete, onBack }) => {
             </Typography>
             
             <Alert severity="info" sx={{ mb: 2 }}>
+              <AlertTitle>Authentication Method: Device Code Flow</AlertTitle>
+              This setup uses Device Code Flow for secure, interactive authentication. Users will sign in through their browser using their Microsoft account credentials.
+            </Alert>
+            
+            <Alert severity="warning" sx={{ mb: 2 }}>
               <AlertTitle>Manual Setup Required</AlertTitle>
               Due to Microsoft security restrictions, you need to create the app manually in Azure Portal.
             </Alert>
@@ -201,93 +142,46 @@ const ManualAzureSetup = ({ onComplete, onBack }) => {
                 />
               </ListItem>
               
-              {config.authMethod === 'device_code' ? (
-                <>
-                  <ListItem>
-                    <ListItemIcon><Typography>3.</Typography></ListItemIcon>
-                    <ListItemText 
-                      primary="Redirect URI"
-                      secondary={
-                        <Box>
-                          <Typography variant="body2">• Platform: Mobile and desktop applications</Typography>
-                          <Typography variant="body2">• URI: https://login.microsoftonline.com/common/oauth2/nativeclient</Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                  
-                  <ListItem>
-                    <ListItemIcon><Typography>4.</Typography></ListItemIcon>
-                    <ListItemText 
-                      primary="API Permissions"
-                      secondary={
-                        <Box>
-                          <Typography variant="body2">Add permission → Microsoft Graph → Delegated:</Typography>
-                          <Typography variant="body2">• Mail.Send</Typography>
-                          <Typography variant="body2">• User.Read</Typography>
-                          <Typography variant="body2">• offline_access</Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                  
-                  <ListItem>
-                    <ListItemIcon><Typography>5.</Typography></ListItemIcon>
-                    <ListItemText 
-                      primary="Enable Public Client"
-                      secondary={
-                        <Box>
-                          <Typography variant="body2">Authentication → Advanced settings</Typography>
-                          <Typography variant="body2">• Allow public client flows: Yes</Typography>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                </>
-              ) : (
-                <>
-                  <ListItem>
-                    <ListItemIcon><Typography>3.</Typography></ListItemIcon>
-                    <ListItemText 
-                      primary="Skip Redirect URI"
-                      secondary="Not needed for client credentials"
-                    />
-                  </ListItem>
-                  
-                  <ListItem>
-                    <ListItemIcon><Typography>4.</Typography></ListItemIcon>
-                    <ListItemText 
-                      primary="API Permissions"
-                      secondary={
-                        <Box>
-                          <Typography variant="body2">Add permission → Microsoft Graph → Application:</Typography>
-                          <Typography variant="body2">• Mail.Send</Typography>
-                          <Alert severity="warning" sx={{ mt: 1 }}>
-                            Don't forget to click "Grant admin consent"!
-                          </Alert>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                  
-                  <ListItem>
-                    <ListItemIcon><Typography>5.</Typography></ListItemIcon>
-                    <ListItemText 
-                      primary="Create Client Secret"
-                      secondary={
-                        <Box>
-                          <Typography variant="body2">Certificates & secrets → New client secret</Typography>
-                          <Typography variant="body2">• Description: SMTP Relay Secret</Typography>
-                          <Typography variant="body2">• Expires: Max 2 years (Microsoft limit)</Typography>
-                          <Alert severity="error" sx={{ mt: 1 }}>
-                            Copy the secret immediately - it won't be shown again!
-                          </Alert>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                </>
-              )}
+              <ListItem>
+                <ListItemIcon><Typography>3.</Typography></ListItemIcon>
+                <ListItemText 
+                  primary="Redirect URI"
+                  secondary={
+                    <Box>
+                      <Typography variant="body2">• Platform: Mobile and desktop applications</Typography>
+                      <Typography variant="body2">• URI: https://login.microsoftonline.com/common/oauth2/nativeclient</Typography>
+                    </Box>
+                  }
+                />
+              </ListItem>
+              
+              <ListItem>
+                <ListItemIcon><Typography>4.</Typography></ListItemIcon>
+                <ListItemText 
+                  primary="API Permissions"
+                  secondary={
+                    <Box>
+                      <Typography variant="body2">Add permission → Microsoft Graph → Delegated:</Typography>
+                      <Typography variant="body2">• Mail.Send</Typography>
+                      <Typography variant="body2">• User.Read</Typography>
+                      <Typography variant="body2">• offline_access</Typography>
+                    </Box>
+                  }
+                />
+              </ListItem>
+              
+              <ListItem>
+                <ListItemIcon><Typography>5.</Typography></ListItemIcon>
+                <ListItemText 
+                  primary="Enable Public Client"
+                  secondary={
+                    <Box>
+                      <Typography variant="body2">Authentication → Advanced settings</Typography>
+                      <Typography variant="body2">• Allow public client flows: Yes</Typography>
+                    </Box>
+                  }
+                />
+              </ListItem>
               
               <ListItem>
                 <ListItemIcon><CheckIcon color="success" /></ListItemIcon>
@@ -302,14 +196,14 @@ const ManualAzureSetup = ({ onComplete, onBack }) => {
               variant="contained"
               fullWidth
               sx={{ mt: 2 }}
-              onClick={() => setActiveStep(2)}
+              onClick={() => setActiveStep(1)}
             >
               I've Created the App - Continue
             </Button>
           </Box>
         );
         
-      case 2: // Enter Credentials
+      case 1: // Enter Credentials
         return (
           <Box>
             <Typography variant="h6" gutterBottom>
@@ -338,18 +232,6 @@ const ManualAzureSetup = ({ onComplete, onBack }) => {
               helperText="The Application ID you copied from Azure Portal"
             />
             
-            {config.authMethod === 'client_credentials' && (
-              <TextField
-                fullWidth
-                label="Client Secret"
-                type="password"
-                value={config.clientSecret}
-                onChange={(e) => setConfig({ ...config, clientSecret: e.target.value })}
-                margin="normal"
-                required
-                helperText="The secret value you copied (not the secret ID)"
-              />
-            )}
             
             <FormControl fullWidth margin="normal">
               <InputLabel>API Method</InputLabel>
@@ -401,16 +283,15 @@ const ManualAzureSetup = ({ onComplete, onBack }) => {
               variant="contained"
               fullWidth
               sx={{ mt: 3 }}
-              onClick={() => setActiveStep(3)}
-              disabled={!config.tenantId || !config.clientId || 
-                       (config.authMethod === 'client_credentials' && !config.clientSecret)}
+              onClick={() => setActiveStep(2)}
+              disabled={!config.tenantId || !config.clientId}
             >
               Review Configuration
             </Button>
           </Box>
         );
         
-      case 3: // Save Configuration
+      case 2: // Save Configuration
         return (
           <Box>
             <Typography variant="h6" gutterBottom>
@@ -423,7 +304,7 @@ const ManualAzureSetup = ({ onComplete, onBack }) => {
                   <ListItem>
                     <ListItemText 
                       primary="Authentication Method"
-                      secondary={config.authMethod === 'device_code' ? 'Device Code Flow' : 'Client Credentials'}
+                      secondary="Device Code Flow"
                     />
                   </ListItem>
                   <ListItem>
@@ -438,14 +319,6 @@ const ManualAzureSetup = ({ onComplete, onBack }) => {
                       secondary={config.clientId}
                     />
                   </ListItem>
-                  {config.clientSecret && (
-                    <ListItem>
-                      <ListItemText 
-                        primary="Client Secret"
-                        secondary="••••••••••••••••"
-                      />
-                    </ListItem>
-                  )}
                   <ListItem>
                     <ListItemText 
                       primary="API Method"

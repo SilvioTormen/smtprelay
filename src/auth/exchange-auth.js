@@ -21,10 +21,8 @@ class ExchangeAuth {
         return await this.getDeviceCodeConfig();
       case 'authorization_code':
         return await this.getAuthCodeConfig();
-      case 'client_credentials':
-        return await this.getClientCredentialsConfig();
       default:
-        throw new Error(`Unknown auth method: ${method}. Supported: device_code, authorization_code, client_credentials`);
+        throw new Error(`Unknown auth method: ${method}. Supported: device_code, authorization_code`);
     }
   }
   
@@ -64,23 +62,6 @@ class ExchangeAuth {
     }
   }
   
-  async getClientCredentialsConfig() {
-    this.logger.info('Using Client Credentials Flow for Exchange Online');
-    
-    try {
-      // Get token using client credentials flow
-      const token = await this.oauth2Manager.getValidToken('client_credentials');
-      
-      return {
-        type: 'OAuth2',
-        user: this.config.auth.send_as || this.config.auth.client_id,
-        accessToken: token
-      };
-    } catch (error) {
-      this.logger.error(`Client Credentials auth failed: ${error.message}`);
-      throw error;
-    }
-  }
   
   async initializeAuth() {
     const method = this.config.auth.method;
@@ -92,12 +73,6 @@ class ExchangeAuth {
           const result = await this.oauth2Manager.initializeDeviceCodeFlow();
           this.logger.info('Device Code authentication completed successfully');
           return result;
-          
-        case 'client_credentials':
-          // Initialize client credentials flow
-          const token = await this.oauth2Manager.getClientCredentialsToken();
-          this.logger.info('Client Credentials authentication completed successfully');
-          return token;
           
         default:
           this.logger.info(`Auth method ${method} does not require initialization`);
