@@ -6,6 +6,11 @@ yarn-error.log*
 # package-lock.json - needed for Dependabot security scanning
 yarn.lock
 
+# NPM/Yarn cache
+.npm/
+.yarn/
+.cache/
+
 # Environment variables
 .env
 .env.local
@@ -22,6 +27,8 @@ tokens.json
 # Logs
 logs/
 *.log
+*.log.*
+smtp.log.*
 *.pid
 *.seed
 *.pid.lock
@@ -34,6 +41,15 @@ data/
 .users.enc
 .encryption.key
 setup-users.js
+
+# IP Whitelist (dynamically created)
+ip-whitelist.json
+
+# Debug/Fix scripts (temporary)
+scripts/debug-*.js
+scripts/fix-*.js
+scripts/reset-*.js
+scripts/temp-*.js
 
 # IDE
 .vscode/
@@ -49,7 +65,7 @@ coverage/
 test-results/
 
 # Build outputs
-dist/
+# dist/ - We need dashboard dist for production!
 build/
 *.tgz
 
@@ -73,6 +89,11 @@ certs/
 tmp/
 temp/
 .tmp/
+*.tmp
+*.temp
+*.bak
+*.backup
+*.old
 
 # Python (if using Python scripts)
 __pycache__/
