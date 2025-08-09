@@ -28,6 +28,7 @@ import {
   Email as EmailIcon,
   Description as LogsIcon,
   Security as SecurityIcon,
+  Shield as ShieldIcon,
   Lock as SessionsIcon,
   Settings as SettingsIcon,
   Logout as LogoutIcon,
@@ -37,6 +38,7 @@ import {
   People as PeopleIcon,
   Person as PersonIcon,
   Cloud as CloudIcon,
+  VpnLock as VpnLockIcon,
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 
@@ -56,7 +58,8 @@ const Layout = ({ darkMode, toggleDarkMode }) => {
     { path: '/devices', name: 'Devices', icon: <DevicesIcon /> },
     { path: '/queue', name: 'Queue', icon: <EmailIcon /> },
     { path: '/logs', name: 'Logs', icon: <LogsIcon /> },
-    { path: '/ip-whitelist', name: 'IP Whitelist', icon: <SecurityIcon /> },
+    { path: '/security', name: 'Security', icon: <ShieldIcon /> },
+    { path: '/ip-whitelist', name: 'IP Whitelist', icon: <VpnLockIcon /> },
     { path: '/sessions', name: 'Sessions', icon: <SessionsIcon /> },
     ...(user?.role === 'admin' ? [{ path: '/users', name: 'User Management', icon: <PeopleIcon /> }] : []),
     { path: '/exchange-setup', name: 'Exchange Setup', icon: <CloudIcon /> },

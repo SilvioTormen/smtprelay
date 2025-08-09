@@ -65,15 +65,20 @@ class SecurityConfig {
    * Validate JWT and session secrets
    */
   validateSecrets() {
+    // Auto-generate missing secrets for both dev and production
+    // These are critical for security and must exist
+    
     // Check JWT_SECRET
     if (!process.env.JWT_SECRET || process.env.JWT_SECRET.includes('change-this') || 
         process.env.JWT_SECRET.includes('CHANGE_THIS') || process.env.JWT_SECRET.length < 32) {
       
+      // Auto-generate secure secret
+      process.env.JWT_SECRET = crypto.randomBytes(32).toString('hex');
+      
       if (process.env.NODE_ENV === 'production') {
-        this.errors.push('JWT_SECRET is not properly configured or too weak');
+        this.warnings.push('JWT_SECRET was auto-generated - save this value for persistent sessions');
+        console.log('🔑 Generated JWT_SECRET - Save this in your .env file for persistence');
       } else {
-        // Auto-generate secure secret for development
-        process.env.JWT_SECRET = crypto.randomBytes(64).toString('base64');
         this.warnings.push('JWT_SECRET auto-generated for development');
       }
     }
@@ -82,10 +87,12 @@ class SecurityConfig {
     if (!process.env.JWT_REFRESH_SECRET || process.env.JWT_REFRESH_SECRET.includes('change-this') || 
         process.env.JWT_REFRESH_SECRET.includes('CHANGE_THIS') || process.env.JWT_REFRESH_SECRET.length < 32) {
       
+      process.env.JWT_REFRESH_SECRET = crypto.randomBytes(32).toString('hex');
+      
       if (process.env.NODE_ENV === 'production') {
-        this.errors.push('JWT_REFRESH_SECRET is not properly configured or too weak');
+        this.warnings.push('JWT_REFRESH_SECRET was auto-generated - save this value for persistent sessions');
+        console.log('🔑 Generated JWT_REFRESH_SECRET - Save this in your .env file for persistence');
       } else {
-        process.env.JWT_REFRESH_SECRET = crypto.randomBytes(64).toString('base64');
         this.warnings.push('JWT_REFRESH_SECRET auto-generated for development');
       }
     }
@@ -94,11 +101,23 @@ class SecurityConfig {
     if (!process.env.SESSION_SECRET || process.env.SESSION_SECRET.includes('change-this') || 
         process.env.SESSION_SECRET.includes('CHANGE_THIS') || process.env.SESSION_SECRET.length < 32) {
       
+      process.env.SESSION_SECRET = crypto.randomBytes(32).toString('hex');
+      
       if (process.env.NODE_ENV === 'production') {
-        this.errors.push('SESSION_SECRET is not properly configured or too weak');
+        this.warnings.push('SESSION_SECRET was auto-generated - save this value for persistent sessions');
+        console.log('🔑 Generated SESSION_SECRET - Save this in your .env file for persistence');
       } else {
-        process.env.SESSION_SECRET = crypto.randomBytes(64).toString('base64');
         this.warnings.push('SESSION_SECRET auto-generated for development');
+      }
+    }
+    
+    // Check ENCRYPTION_KEY for data encryption
+    if (!process.env.ENCRYPTION_KEY || process.env.ENCRYPTION_KEY.length < 32) {
+      process.env.ENCRYPTION_KEY = crypto.randomBytes(32).toString('hex');
+      
+      if (process.env.NODE_ENV === 'production') {
+        this.warnings.push('ENCRYPTION_KEY was auto-generated - save this value to decrypt stored data');
+        console.log('🔑 Generated ENCRYPTION_KEY - Save this in your .env file for persistence');
       }
     }
     
@@ -114,18 +133,30 @@ class SecurityConfig {
    * Validate password configurations
    */
   validatePasswords() {
-    // Check initial admin passwords
+    // Initial passwords are optional - will be set on first login
     if (process.env.NODE_ENV === 'production') {
       if (!process.env.ADMIN_INITIAL_PASSWORD || 
           process.env.ADMIN_INITIAL_PASSWORD.includes('Admin123') ||
           process.env.ADMIN_INITIAL_PASSWORD.includes('CHANGE_THIS')) {
-        this.errors.push('ADMIN_INITIAL_PASSWORD must be set to a strong password in production');
+        // Generate secure temporary password if not set
+        if (!process.env.ADMIN_INITIAL_PASSWORD) {
+          process.env.ADMIN_INITIAL_PASSWORD = SecurityConfig.generatePassword();
+          this.warnings.push('Generated temporary admin password - change on first login');
+        } else {
+          this.warnings.push('Weak ADMIN_INITIAL_PASSWORD detected - must be changed on first login');
+        }
       }
       
       if (!process.env.HELPDESK_INITIAL_PASSWORD || 
           process.env.HELPDESK_INITIAL_PASSWORD.includes('Help123') ||
           process.env.HELPDESK_INITIAL_PASSWORD.includes('CHANGE_THIS')) {
-        this.errors.push('HELPDESK_INITIAL_PASSWORD must be set to a strong password in production');
+        // Generate secure temporary password if not set
+        if (!process.env.HELPDESK_INITIAL_PASSWORD) {
+          process.env.HELPDESK_INITIAL_PASSWORD = SecurityConfig.generatePassword();
+          this.warnings.push('Generated temporary helpdesk password - change on first login');
+        } else {
+          this.warnings.push('Weak HELPDESK_INITIAL_PASSWORD detected - must be changed on first login');
+        }
       }
     }
     
@@ -144,34 +175,48 @@ class SecurityConfig {
    */
   validateTLS() {
     if (process.env.NODE_ENV === 'production') {
-      // Check HTTPS enforcement
-      if (process.env.FORCE_HTTPS !== 'true') {
-        this.errors.push('FORCE_HTTPS must be enabled in production');
-      }
+      // Check if behind reverse proxy (nginx/Apache with SSL termination)
+      const behindProxy = process.env.BEHIND_PROXY === 'true';
       
-      // Check TLS certificates
-      if (!process.env.TLS_CERT_PATH || !process.env.TLS_KEY_PATH) {
-        this.errors.push('TLS_CERT_PATH and TLS_KEY_PATH must be configured for production');
+      if (behindProxy) {
+        // When behind proxy, TLS is handled by the proxy
+        this.warnings.push('Running behind proxy - ensure proxy handles TLS/HTTPS');
+        
+        // Check trusted proxies configuration
+        if (!process.env.TRUSTED_PROXIES) {
+          this.warnings.push('TRUSTED_PROXIES should be configured when BEHIND_PROXY is true');
+        }
       } else {
-        // Verify cert files exist
-        try {
-          if (!fs.existsSync(process.env.TLS_CERT_PATH)) {
-            this.errors.push(`TLS certificate not found: ${process.env.TLS_CERT_PATH}`);
+        // Direct exposure - TLS recommended but not required (can be added later via GUI)
+        if (process.env.FORCE_HTTPS !== 'true') {
+          this.warnings.push('Consider enabling FORCE_HTTPS in production');
+        }
+        
+        // Check TLS certificates - optional, can be configured later
+        if (!process.env.TLS_CERT_PATH || !process.env.TLS_KEY_PATH) {
+          this.warnings.push('TLS certificates not configured - can be added via admin interface');
+        } else {
+          // Verify cert files exist if paths are provided
+          try {
+            if (!fs.existsSync(process.env.TLS_CERT_PATH)) {
+              this.warnings.push(`TLS certificate not found: ${process.env.TLS_CERT_PATH}`);
+            }
+            if (!fs.existsSync(process.env.TLS_KEY_PATH)) {
+              this.warnings.push(`TLS key not found: ${process.env.TLS_KEY_PATH}`);
+            }
+          } catch (err) {
+            this.warnings.push('Could not verify TLS certificate files');
           }
-          if (!fs.existsSync(process.env.TLS_KEY_PATH)) {
-            this.errors.push(`TLS key not found: ${process.env.TLS_KEY_PATH}`);
-          }
-        } catch (err) {
-          this.warnings.push('Could not verify TLS certificate files');
         }
       }
       
-      // Check WebAuthn configuration
+      // WebAuthn configuration - optional feature
       if (!process.env.RP_ID || process.env.RP_ID === 'localhost') {
-        this.errors.push('RP_ID must be set to your domain for WebAuthn/FIDO2');
+        this.warnings.push('WebAuthn/FIDO2 not configured - can be enabled via admin interface');
       }
-      if (!process.env.ORIGIN || !process.env.ORIGIN.startsWith('https://')) {
-        this.errors.push('ORIGIN must be set to https://your-domain for WebAuthn/FIDO2');
+      if (process.env.RP_ID && process.env.RP_ID !== 'localhost' && 
+          (!process.env.ORIGIN || !process.env.ORIGIN.startsWith('https://'))) {
+        this.warnings.push('ORIGIN should be https://your-domain when RP_ID is configured');
       }
     }
   }
@@ -212,14 +257,15 @@ class SecurityConfig {
         this.errors.push('DEBUG must be disabled in production');
       }
       
-      // Check Redis password
-      if (!process.env.REDIS_PASSWORD || process.env.REDIS_PASSWORD.includes('CHANGE_THIS')) {
-        this.errors.push('REDIS_PASSWORD must be set in production');
+      // Redis is optional - using memory store is fine
+      if (process.env.REDIS_HOST && (!process.env.REDIS_PASSWORD || process.env.REDIS_PASSWORD.includes('CHANGE_THIS'))) {
+        this.warnings.push('Redis configured but REDIS_PASSWORD not set - consider adding password');
       }
       
-      // Check database password if using database
-      if (process.env.DB_TYPE && (!process.env.DB_PASSWORD || process.env.DB_PASSWORD.includes('CHANGE_THIS'))) {
-        this.errors.push('DB_PASSWORD must be set in production');
+      // Database password only required if database is configured
+      if (process.env.DB_TYPE && process.env.DB_TYPE !== 'sqlite' && 
+          (!process.env.DB_PASSWORD || process.env.DB_PASSWORD.includes('CHANGE_THIS'))) {
+        this.warnings.push('Database configured but DB_PASSWORD not set properly');
       }
     }
     

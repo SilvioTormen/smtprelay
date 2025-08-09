@@ -12,6 +12,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Devices from './pages/Devices';
 import Queue from './pages/Queue';
+import Security from './pages/Security';
 import Settings from './pages/Settings';
 import Logs from './pages/Logs';
 import IPWhitelist from './pages/IPWhitelist';
@@ -206,6 +207,7 @@ function App() {
                       <Route path="devices" element={<Devices />} />
                       <Route path="queue" element={<Queue />} />
                       <Route path="logs" element={<Logs />} />
+                      <Route path="security" element={<Security />} />
                       <Route path="settings" element={<Settings />} />
                       <Route path="ip-whitelist" element={<IPWhitelist />} />
                       <Route path="sessions" element={<Sessions />} />

@@ -317,6 +317,7 @@ class APIServer {
     this.app.use('/api/azure-simple', require('./routes/azure-simple'));
     this.app.use('/api/azure-graph', require('./routes/azure-graph-admin'));
     this.app.use('/api/system', require('./routes/system'));
+    this.app.use('/api/security', require('./routes/security-status'));
 
     // Health Check (no auth required)
     this.app.get('/api/health', (req, res) => {
