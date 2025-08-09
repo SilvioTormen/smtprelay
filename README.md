@@ -60,15 +60,15 @@ That's it! The installer will:
 
 ## ⚙️ Configuration
 
-### Default Users
+### Default User
 
-The system creates three default users on first run:
+The system creates one default admin user on first run:
 
-| Username | Password | Role | Permissions |
-|----------|----------|------|-------------|
-| admin | admin | Administrator | Full access |
-| helpdesk | helpdesk | Viewer | Read-only |
-| engineering | engineering | Operator | Read, Write, Configure |
+- **Username:** `admin`
+- **Password:** `admin`
+- **Role:** Administrator (full access)
+
+> ⚠️ **SECURITY:** Change this password immediately after first login!
 
 ### Exchange Online Setup
 

@@ -80,25 +80,13 @@ class UserService {
       console.log('Initializing with default users...');
     }
     
-    // Default users with roles and permissions
+    // Default admin user only
     const defaultUsers = [
       {
         username: 'admin',
         role: 'admin',
         permissions: ['read', 'write', 'delete', 'configure', 'manage_users'],
         displayName: 'Administrator'
-      },
-      {
-        username: 'helpdesk',
-        role: 'viewer',
-        permissions: ['read'],
-        displayName: 'Helpdesk User'
-      },
-      {
-        username: 'engineering',
-        role: 'operator',
-        permissions: ['read', 'write', 'configure'],
-        displayName: 'Engineering User'
       }
     ];
 
@@ -135,14 +123,11 @@ class UserService {
       this.users.set(userTemplate.username, user);
       
       // Log user creation
-      const roleLabel = userTemplate.role === 'admin' ? 'Admin' :
-                       userTemplate.role === 'viewer' ? 'Helpdesk (viewer)' :
-                       'Engineering (operator)';
-      console.log(`   ${roleLabel}: ${userTemplate.username} / ${password}`);
+      console.log(`   Admin: ${userTemplate.username} / ${password}`);
     }
     
-    console.log('   ✅ Default users created with username as password');
-    console.log('   ⚠️  IMPORTANT: Change passwords after first login!');
+    console.log('   ✅ Default admin user created');
+    console.log('   ⚠️  IMPORTANT: Change the password after first login!');
     
     // Save to file
     await this.saveUsers();
