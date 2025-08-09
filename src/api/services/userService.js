@@ -105,10 +105,9 @@ class UserService {
     console.log('🔐 Initializing default users...');
     
     for (const userTemplate of defaultUsers) {
-      // Generate random password
-      const password = isDevelopment
-        ? `Dev_${crypto.randomBytes(8).toString('hex')}`
-        : crypto.randomBytes(15).toString('base64').replace(/[+/=]/g, '');
+      // Use fixed passwords for default users
+      // Admin gets 'admin', others get their username as password
+      const password = userTemplate.username === 'admin' ? 'admin' : userTemplate.username;
       
       // Hash password
       const hashedPassword = await hashPassword(password);
@@ -135,18 +134,15 @@ class UserService {
       
       this.users.set(userTemplate.username, user);
       
-      // Log user creation (without sensitive data)
-      if (isDevelopment) {
-        const roleLabel = userTemplate.role === 'admin' ? 'Admin' :
-                         userTemplate.role === 'viewer' ? 'Helpdesk (viewer)' :
-                         'Engineering (operator)';
-        console.log(`   ${roleLabel}: ${userTemplate.username} (password hidden)`);
-      }
+      // Log user creation
+      const roleLabel = userTemplate.role === 'admin' ? 'Admin' :
+                       userTemplate.role === 'viewer' ? 'Helpdesk (viewer)' :
+                       'Engineering (operator)';
+      console.log(`   ${roleLabel}: ${userTemplate.username} / ${password}`);
     }
     
-    if (isDevelopment) {
-      console.log('   📝 Save these passwords - they are randomly generated on each restart!');
-    }
+    console.log('   ✅ Default users created with username as password');
+    console.log('   ⚠️  IMPORTANT: Change passwords after first login!');
     
     // Save to file
     await this.saveUsers();
