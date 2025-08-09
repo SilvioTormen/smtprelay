@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -51,6 +51,7 @@ import SimpleAzureSetup from '../components/SimpleAzureSetup';
 import ManualAzureSetup from '../components/ManualAzureSetup';
 import AzureAdminSetup from '../components/AzureAdminSetup';
 import ExchangeStatusDashboard from '../components/ExchangeStatusDashboard';
+import ErrorBoundary from '../components/ErrorBoundary';
 import { motion } from 'framer-motion';
 import {
   CheckCircle as CheckCircleIcon,
@@ -58,6 +59,7 @@ import {
   Info as InfoIcon,
   Refresh as RefreshIcon,
   Delete as DeleteIcon,
+  ArrowBack as ArrowBackIcon,
   Visibility as VisibilityIcon,
   VisibilityOff as VisibilityOffIcon,
   ContentCopy as CopyIcon,
@@ -87,8 +89,13 @@ import {
   TrendingUp as TrendingUpIcon
 } from '@mui/icons-material';
 
+// Constants
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const POLL_INTERVAL_MULTIPLIER = 1000;
+const CLIPBOARD_SUCCESS_TIMEOUT = 2000;
+const SETUP_STEPS = ['Choose Method', 'Configure Azure AD', 'Authenticate', 'Test Connection'];
 
+// Motion components
 const MotionCard = motion(Card);
 const MotionBox = motion(Box);
 
@@ -120,23 +127,10 @@ const ExchangeSetup = () => {
   const [showUserAuthDialog, setShowUserAuthDialog] = useState(false); // New state for user auth dialog
   const [dashboardKey, setDashboardKey] = useState(0); // Key to force dashboard refresh
 
-  const steps = ['Choose Method', 'Configure Azure AD', 'Authenticate', 'Test Connection'];
+  const steps = useMemo(() => SETUP_STEPS, []);
 
-  useEffect(() => {
-    checkStatus();
-  }, []);
-
-  useEffect(() => {
-    let pollInterval;
-    if (polling && deviceCodeInfo) {
-      pollInterval = setInterval(() => {
-        pollForToken();
-      }, (deviceCodeInfo.interval || 5) * 1000);
-    }
-    return () => clearInterval(pollInterval);
-  }, [polling, deviceCodeInfo]);
-
-  const checkStatus = async () => {
+  // Define all callbacks before useEffects to avoid initialization errors
+  const checkStatus = useCallback(async () => {
     setLoading(true);
     try {
       const response = await apiRequest('/api/exchange-config/status');
@@ -167,26 +161,34 @@ const ExchangeSetup = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiRequest]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     setActiveStep((prev) => prev + 1);
-  };
+  }, []);
 
-  const handleBack = () => {
-    setActiveStep((prev) => prev - 1);
-  };
+  const handleBack = useCallback(() => {
+    setActiveStep((prev) => {
+      const newStep = Math.max(0, prev - 1);
+      // Only reset setupMode if going back FROM step 1 TO step 0
+      // This means user wants to change the setup method
+      if (prev === 1 && newStep === 0) {
+        setSetupMode('choose');
+      }
+      return newStep;
+    });
+  }, []);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setActiveStep(0);
     setDeviceCodeInfo(null);
     setPolling(false);
     setTestResult(null);
     setError(null);
     setSuccess(null);
-  };
+  }, []);
 
-  const startAuthentication = async (skipWizardNext = false) => {
+  const startAuthentication = useCallback(async (skipWizardNext = false) => {
     setLoading(true);
     setError(null);
     try {
@@ -221,9 +223,9 @@ const ExchangeSetup = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [status, showSetupWizard, apiRequest, handleNext]);
 
-  const pollForToken = async () => {
+  const pollForToken = useCallback(async () => {
     try {
       const response = await apiRequest('/api/exchange-config/oauth/poll', {
         method: 'POST',
@@ -256,9 +258,9 @@ const ExchangeSetup = () => {
         setPolling(false);
       }
     }
-  };
+  }, [deviceCodeInfo, status, apiRequest, showUserAuthDialog, showSetupWizard, handleNext, checkStatus]);
 
-  const saveConfiguration = async () => {
+  const saveConfiguration = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -283,9 +285,9 @@ const ExchangeSetup = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [config, apiRequest, checkStatus, startAuthentication, handleNext]);
 
-  const testConnection = async (accountId) => {
+  const testConnection = useCallback(async (accountId) => {
     setLoading(true);
     setError(null);
     try {
@@ -307,9 +309,9 @@ const ExchangeSetup = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiRequest]);
 
-  const refreshAccountTokens = async (accountId) => {
+  const refreshAccountTokens = useCallback(async (accountId) => {
     setLoading(true);
     try {
       await apiRequest(`/api/exchange-config/accounts/${accountId}/refresh`, {
@@ -322,9 +324,9 @@ const ExchangeSetup = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiRequest, checkStatus]);
 
-  const setDefaultAccount = async (accountId) => {
+  const setDefaultAccount = useCallback(async (accountId) => {
     try {
       await apiRequest(`/api/exchange-config/accounts/${accountId}/set-default`, {
         method: 'POST'
@@ -333,9 +335,9 @@ const ExchangeSetup = () => {
     } catch (err) {
       setError('Failed to set default account');
     }
-  };
+  }, [apiRequest, checkStatus]);
 
-  const deleteAccount = async (accountId) => {
+  const deleteAccount = useCallback(async (accountId) => {
     try {
       await apiRequest(`/api/exchange-config/accounts/${accountId}`, {
         method: 'DELETE'
@@ -344,20 +346,26 @@ const ExchangeSetup = () => {
     } catch (err) {
       setError('Failed to delete account');
     }
-  };
+  }, [apiRequest, checkStatus]);
 
-  const copyToClipboard = (text) => {
-    navigator.clipboard.writeText(text);
-    setSuccess('Copied to clipboard!');
-    setTimeout(() => setSuccess(null), 2000);
-  };
+  const copyToClipboard = useCallback((text) => {
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setSuccess('Copied to clipboard!');
+        setTimeout(() => setSuccess(null), CLIPBOARD_SUCCESS_TIMEOUT);
+      })
+      .catch(err => {
+        console.error('Failed to copy:', err);
+        setError('Failed to copy to clipboard');
+      });
+  }, []);
 
-  const formatDate = (dateString) => {
+  const formatDate = useCallback((dateString) => {
     if (!dateString) return 'Never';
     return new Date(dateString).toLocaleString();
-  };
+  }, []);
 
-  const getTimeUntilExpiry = (expiryDate) => {
+  const getTimeUntilExpiry = useCallback((expiryDate) => {
     if (!expiryDate) return 'Expired';
     const now = new Date();
     const expiry = new Date(expiryDate);
@@ -370,9 +378,9 @@ const ExchangeSetup = () => {
     
     if (days > 0) return `${days} days ${hours} hours`;
     return `${hours} hours`;
-  };
+  }, []);
 
-  const handleAutomaticSetupComplete = async (result) => {
+  const handleAutomaticSetupComplete = useCallback(async (result) => {
     if (result && result.success) {
       setSuccess('Azure AD application created successfully!');
       // Refresh the status to show the new configuration
@@ -384,7 +392,22 @@ const ExchangeSetup = () => {
         setSuccess(`Application "${result.application.displayName}" created successfully! Application ID: ${result.application.appId}`);
       }
     }
-  };
+  }, [checkStatus]);
+
+  // useEffects should come after callback definitions
+  useEffect(() => {
+    checkStatus();
+  }, [checkStatus]);
+
+  useEffect(() => {
+    let pollInterval;
+    if (polling && deviceCodeInfo) {
+      pollInterval = setInterval(() => {
+        pollForToken();
+      }, (deviceCodeInfo.interval || 5) * POLL_INTERVAL_MULTIPLIER);
+    }
+    return () => clearInterval(pollInterval);
+  }, [polling, deviceCodeInfo, pollForToken]);
 
   if (loading && !status) {
     return (
@@ -602,10 +625,21 @@ const ExchangeSetup = () => {
                     You have an existing configuration. Creating a new app will replace the current one.
                     <Button 
                       size="small" 
-                      sx={{ mt: 1 }}
+                      startIcon={<ArrowBackIcon />}
+                      sx={{ 
+                        mt: 1,
+                        color: theme.palette.mode === 'dark'
+                          ? theme.palette.grey[300]
+                          : theme.palette.grey[700],
+                        '&:hover': {
+                          backgroundColor: theme.palette.mode === 'dark'
+                            ? 'rgba(255, 255, 255, 0.08)'
+                            : 'rgba(0, 0, 0, 0.04)'
+                        }
+                      }}
                       onClick={() => setShowSetupWizard(false)}
                     >
-                      Back to Status
+                      Back to Dashboard
                     </Button>
                   </Alert>
                 </Grow>
@@ -806,18 +840,18 @@ const ExchangeSetup = () => {
       case 1:
         if (setupMode === 'automatic') {
           return (
-            <AzureAdminSetup 
-              onComplete={handleAutomaticSetupComplete}
-              onCancel={() => setActiveStep(0)}
-            />
+            <ErrorBoundary onReset={() => setActiveStep(0)}>
+              <AzureAdminSetup 
+                onComplete={handleAutomaticSetupComplete}
+                onBack={handleBack}
+              />
+            </ErrorBoundary>
           );
         } else {
           return (
             <ManualAzureSetup
-              config={config}
-              setConfig={setConfig}
-              onNext={saveConfiguration}
-              onBack={() => setActiveStep(0)}
+              onComplete={() => checkStatus()}
+              onBack={handleBack}
             />
           );
         }
@@ -934,23 +968,33 @@ const ExchangeSetup = () => {
                 Exchange Online Setup
               </Typography>
             </Box>
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={() => {
-                // Reset wizard state and close
-                setActiveStep(0);
-                setSetupMode('choose');
-                setError(null);
-                setSuccess(null);
-                setShowSetupWizard(false);
-                // Refresh status to show current state
-                checkStatus();
-              }}
-              sx={{ borderRadius: 2 }}
-            >
-              Cancel Setup
-            </Button>
+            {/* Back button - only show when NOT displaying child components */}
+            {activeStep > 0 && !(activeStep === 1 && (setupMode === 'automatic' || setupMode === 'manual')) && (
+              <Button
+                variant="outlined"
+                startIcon={<ArrowBackIcon />}
+                onClick={handleBack}
+                sx={{ 
+                  borderRadius: 2,
+                  borderColor: theme.palette.mode === 'dark' 
+                    ? 'rgba(255, 255, 255, 0.23)' 
+                    : 'rgba(0, 0, 0, 0.23)',
+                  color: theme.palette.mode === 'dark'
+                    ? theme.palette.grey[300]
+                    : theme.palette.grey[700],
+                  '&:hover': {
+                    borderColor: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.4)'
+                      : 'rgba(0, 0, 0, 0.4)',
+                    backgroundColor: theme.palette.mode === 'dark'
+                      ? 'rgba(255, 255, 255, 0.08)'
+                      : 'rgba(0, 0, 0, 0.04)'
+                  }
+                }}
+              >
+                Back
+              </Button>
+            )}
           </Box>
           
           {/* Only show stepper for manual setup or when choosing method - automatic setup has its own stepper */}
@@ -984,25 +1028,30 @@ const ExchangeSetup = () => {
             {renderStepContent(activeStep)}
           </Box>
           
-          <Collapse in={!!error}>
-            <Alert 
-              severity="error" 
-              sx={{ mt: 3, borderRadius: 2 }} 
-              onClose={() => setError(null)}
-            >
-              {error}
-            </Alert>
-          </Collapse>
-          
-          <Collapse in={!!success}>
-            <Alert 
-              severity="success" 
-              sx={{ mt: 3, borderRadius: 2 }} 
-              onClose={() => setSuccess(null)}
-            >
-              {success}
-            </Alert>
-          </Collapse>
+          {/* Never show parent's alerts when using automatic setup (AzureAdminSetup manages its own) */}
+          {setupMode !== 'automatic' && (
+            <>
+              <Collapse in={!!error}>
+                <Alert 
+                  severity="error" 
+                  sx={{ mt: 3, borderRadius: 2 }} 
+                  onClose={() => setError(null)}
+                >
+                  {error}
+                </Alert>
+              </Collapse>
+              
+              <Collapse in={!!success}>
+                <Alert 
+                  severity="success" 
+                  sx={{ mt: 3, borderRadius: 2 }} 
+                  onClose={() => setSuccess(null)}
+                >
+                  {success}
+                </Alert>
+              </Collapse>
+            </>
+          )}
         </Paper>
       </MotionBox>
     </Box>

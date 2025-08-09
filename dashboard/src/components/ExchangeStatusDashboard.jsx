@@ -357,6 +357,7 @@ const ExchangeStatusDashboard = ({ onSetupStart, onEdit }) => {
                       <TableCell>Application ID</TableCell>
                       <TableCell>Tenant ID</TableCell>
                       <TableCell>Auth Method</TableCell>
+                      <TableCell>API Method</TableCell>
                       <TableCell>Status</TableCell>
                       <TableCell align="right">Actions</TableCell>
                     </TableRow>
@@ -391,6 +392,14 @@ const ExchangeStatusDashboard = ({ onSetupStart, onEdit }) => {
                           <Chip 
                             label={app.authMethod || 'Unknown'} 
                             size="small"
+                            variant="outlined"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={app.apiMethod === 'smtp_oauth' ? 'SMTP OAuth2' : 'Graph API'} 
+                            size="small"
+                            color={app.apiMethod === 'smtp_oauth' ? 'warning' : 'primary'}
                             variant="outlined"
                           />
                         </TableCell>

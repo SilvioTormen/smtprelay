@@ -227,7 +227,7 @@ router.post('/admin/create-app', authenticate, requireConfigure, async (req, res
       apiMethod = 'graph_api'
     } = appConfig || {};
     
-    console.log(`Creating app: ${displayName} with auth method: ${authMethod}`);
+    console.log(`Creating app: ${displayName} with auth method: ${authMethod} and API method: ${apiMethod}`);
     
     // Create the application using Graph API
     const createAppUrl = 'https://graph.microsoft.com/v1.0/applications';
@@ -284,16 +284,36 @@ router.post('/admin/create-app', authenticate, requireConfigure, async (req, res
       
       appPayload.requiredResourceAccess.push(graphPermissions);
     } else {
-      // SMTP OAuth permissions
-      const exchangePermissions = {
-        resourceAppId: '00000002-0000-0ff1-ce00-000000000000', // Office 365 Exchange Online
-        resourceAccess: [{
-          id: '258f6531-6087-4cc4-bb90-092c5fb3ed3f', // SMTP.Send
-          type: authMethod === 'client_credentials' ? 'Role' : 'Scope'
-        }]
+      // SMTP OAuth2 - Phase 1: Minimal permissions for app creation
+      // Phase 2: offline_access will be requested dynamically during mailbox authentication
+      
+      // Basic Microsoft Graph permissions for authentication
+      const graphPermissions = {
+        resourceAppId: '00000003-0000-0000-c000-000000000000', // Microsoft Graph
+        resourceAccess: []
       };
       
-      appPayload.requiredResourceAccess.push(exchangePermissions);
+      // User.Read for basic profile information
+      graphPermissions.resourceAccess.push({
+        id: 'e1fe6dd8-ba31-4d61-89e7-88639da4683d', // User.Read
+        type: 'Scope'
+      });
+      
+      // openid for OpenID Connect authentication
+      graphPermissions.resourceAccess.push({
+        id: '37f7f235-527c-4136-accd-4a02d197296e', // openid
+        type: 'Scope'
+      });
+      
+      // SMTP.Send permission - add to Graph permissions
+      graphPermissions.resourceAccess.push({
+        id: '258f6531-6087-4cc4-bb90-092c5fb3ed3f', // SMTP.Send
+        type: authMethod === 'client_credentials' ? 'Role' : 'Scope'
+      });
+      
+      appPayload.requiredResourceAccess.push(graphPermissions);
+      
+      // Note: offline_access will be requested dynamically in Phase 2 when adding mailboxes
     }
     
     try {

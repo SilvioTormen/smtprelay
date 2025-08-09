@@ -79,25 +79,13 @@ class OAuth2FlowManager {
     });
 
     try {
-      // Determine scopes based on configured method
-      let scopes = ['offline_access'];
+      // Phase 2: When adding mailbox, request minimal permissions
+      // The send permissions (Mail.Send or SMTP.Send) were already configured 
+      // during app registration in Phase 1
+      // We need at least User.Read for authentication to work
+      let scopes = ['https://graph.microsoft.com/User.Read', 'offline_access'];
       
-      const apiMethod = this.config.method || 'graph_api';
-      
-      if (apiMethod === 'graph_api') {
-        // Only Graph API scope
-        scopes.unshift('https://graph.microsoft.com/Mail.Send');
-        this.logger.info('Using Graph API scopes only');
-      } else if (apiMethod === 'smtp_oauth2') {
-        // Only SMTP scope
-        scopes.unshift('https://outlook.office365.com/SMTP.Send');
-        this.logger.info('Using SMTP OAuth2 scopes only');
-      } else if (apiMethod === 'hybrid') {
-        // Both scopes for hybrid mode
-        scopes.unshift('https://outlook.office365.com/SMTP.Send');
-        scopes.unshift('https://graph.microsoft.com/Mail.Send');
-        this.logger.info('Using hybrid mode with both scopes');
-      }
+      this.logger.info('Requesting User.Read and offline_access (send permissions already configured in app)')
       
       this.logger.info(`Requesting scopes: ${scopes.length} scope(s)`);
       
@@ -458,15 +446,9 @@ class OAuth2FlowManager {
     try {
       const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
       
-      // Determine which scope to use based on config
+      // Phase 2: When adding mailbox, only request offline_access
+      // The send permissions were already configured during app registration
       let scope = 'offline_access';
-      const apiMethod = this.config.api_method || 'graph_api';
-      
-      if (apiMethod === 'graph_api') {
-        scope = 'https://graph.microsoft.com/Mail.Send offline_access';
-      } else if (apiMethod === 'smtp_oauth2') {
-        scope = 'https://outlook.office365.com/SMTP.Send offline_access';
-      }
       
       const params = new URLSearchParams({
         client_id: clientId,
