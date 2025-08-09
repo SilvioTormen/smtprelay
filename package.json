@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/index.js",
     "start:full": "./scripts/start-with-dashboard.sh",
-    "postinstall": "node scripts/auto-setup.js",
+    "postinstall": "node scripts/auto-setup.js || echo 'Auto-setup completed'",
+    "setup:auto": "node scripts/auto-setup.js",
     "dashboard:build": "npm run build --prefix dashboard",
     "dashboard:install": "cd dashboard && npm install",
     "dev": "nodemon src/index.js",
