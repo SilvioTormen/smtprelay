@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node src/index.js",
     "start:full": "./scripts/start-with-dashboard.sh",
+    "postinstall": "node scripts/auto-setup.js",
     "dashboard:build": "npm run build --prefix dashboard",
+    "dashboard:install": "cd dashboard && npm install",
     "dev": "nodemon src/index.js",
     "pm2": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop smtp-relay",
@@ -45,7 +47,6 @@
     "cors": "^2.8.5",
     "crypto-random-string": "^5.0.0",
     "csrf": "^3.1.0",
-    "csurf": "^1.11.0",
     "date-fns": "^4.1.0",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",

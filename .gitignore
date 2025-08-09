@@ -31,6 +31,9 @@ data/
 *.json.backup
 *.db
 *.sqlite
+.users.enc
+.encryption.key
+setup-users.js
 
 # IDE
 .vscode/

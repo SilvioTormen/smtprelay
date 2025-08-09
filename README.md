@@ -41,23 +41,37 @@ A robust, enterprise-grade SMTP relay service designed for legacy devices (print
 
 ## 🎯 Quick Start
 
-### Option 1: Automated Setup with Azure Wizard (Recommended)
+### ⚡ One-Command Installation (NEW!)
 
 ```bash
-# Clone and install
+# Clone and auto-install everything
+git clone https://github.com/SilvioTormen/smtprelay.git && cd smtprelay && ./install.sh
+```
+
+That's it! The installer will:
+- ✅ Install all dependencies
+- ✅ Generate security secrets
+- ✅ Create default admin user (admin/admin)
+- ✅ Build the dashboard
+- ✅ Start the application
+
+**Access:** http://localhost:3001 | **Login:** admin/admin
+
+### Option 1: npm Installation (Auto-Setup)
+
+```bash
+# Clone the repository
 git clone https://github.com/SilvioTormen/smtprelay.git
 cd smtprelay
+
+# Install - automatic setup runs after installation
 npm install
-npm install --prefix dashboard
 
-# Run the automated setup wizard
-npm run setup:azure
+# Start the application
+npm start
 
-# The wizard will:
-# - Create Azure AD app registration automatically
-# - Configure Exchange Online connectors
-# - Set up mail flow rules
-# - Generate all required credentials
+# Or with PM2 for production
+npm run pm2
 ```
 
 ### Option 2: Ansible Deployment (Production)
