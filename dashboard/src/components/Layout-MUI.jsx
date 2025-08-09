@@ -18,6 +18,12 @@ import {
   Tooltip,
   Avatar,
   Chip,
+  Menu,
+  MenuItem,
+  Badge,
+  Stack,
+  Button,
+  Paper
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -39,6 +45,12 @@ import {
   Person as PersonIcon,
   Cloud as CloudIcon,
   VpnLock as VpnLockIcon,
+  AccountCircle as AccountIcon,
+  CalendarToday as CalendarIcon,
+  AccessTime as TimeIcon,
+  Notifications as NotificationsIcon,
+  ExpandMore as ExpandMoreIcon,
+  WifiTethering as SignalIcon
 } from '@mui/icons-material';
 import { useTheme } from '@mui/material/styles';
 
@@ -47,6 +59,8 @@ const drawerWidthCollapsed = 65;
 
 const Layout = ({ darkMode, toggleDarkMode }) => {
   const [open, setOpen] = useState(true);
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [notificationAnchor, setNotificationAnchor] = useState(null);
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -88,6 +102,15 @@ const Layout = ({ darkMode, toggleDarkMode }) => {
   return (
     <Box sx={{ display: 'flex' }}>
       <CssBaseline />
+      <style>
+        {`
+          @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+          }
+        `}
+      </style>
       
       {/* App Bar */}
       <AppBar
@@ -116,42 +139,250 @@ const Layout = ({ darkMode, toggleDarkMode }) => {
             {menuItems.find(item => item.path === location.pathname)?.name || 'SMTP Relay'}
           </Typography>
           
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Chip
-              icon={<CircleIcon sx={{ fontSize: 12 }} />}
-              label="Connected"
-              color="success"
-              size="small"
-              sx={{ 
-                '& .MuiChip-icon': { 
-                  animation: 'pulse 2s infinite',
-                  '@keyframes pulse': {
-                    '0%': { opacity: 1 },
-                    '50%': { opacity: 0.3 },
-                    '100%': { opacity: 1 },
-                  }
-                }
+          <Stack direction="row" spacing={1} alignItems="center">
+            {/* Connection Status */}
+            <Paper
+              sx={{
+                px: 1.5,
+                py: 0.5,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                bgcolor: theme.palette.mode === 'dark' 
+                  ? 'rgba(76, 175, 80, 0.15)' 
+                  : 'rgba(76, 175, 80, 0.1)',
+                border: '1px solid',
+                borderColor: theme.palette.mode === 'dark'
+                  ? 'rgba(76, 175, 80, 0.3)'
+                  : 'rgba(76, 175, 80, 0.2)',
+                borderRadius: 2
               }}
-            />
+            >
+              <SignalIcon 
+                sx={{ 
+                  fontSize: 18, 
+                  animation: 'pulse 2s infinite',
+                  color: theme.palette.mode === 'dark' 
+                    ? '#4caf50' 
+                    : 'success.main'
+                }} 
+              />
+              <Typography 
+                variant="caption" 
+                fontWeight="medium"
+                sx={{
+                  color: theme.palette.mode === 'dark' 
+                    ? '#4caf50' 
+                    : 'success.main'
+                }}
+              >
+                ONLINE
+              </Typography>
+            </Paper>
             
-            <Typography variant="body2" sx={{ display: { xs: 'none', md: 'block' } }}>
-              {new Date().toLocaleDateString('en-US', { 
-                weekday: 'short', 
-                month: 'short', 
-                day: 'numeric' 
-              })}
-            </Typography>
+            {/* Date and Time */}
+            <Paper
+              sx={{
+                px: 2,
+                py: 0.5,
+                display: { xs: 'none', md: 'flex' },
+                alignItems: 'center',
+                gap: 1,
+                bgcolor: theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100',
+                borderRadius: 2
+              }}
+            >
+              <CalendarIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2">
+                {new Date().toLocaleDateString('en-US', { 
+                  weekday: 'short', 
+                  month: 'short', 
+                  day: 'numeric' 
+                })}
+              </Typography>
+              <Divider orientation="vertical" flexItem sx={{ mx: 0.5 }} />
+              <TimeIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+              <Typography variant="body2">
+                {new Date().toLocaleTimeString('en-US', { 
+                  hour: '2-digit', 
+                  minute: '2-digit'
+                })}
+              </Typography>
+            </Paper>
             
-            <Tooltip title="Toggle theme">
-              <IconButton onClick={toggleDarkMode} color="inherit">
-                {darkMode ? <LightModeIcon /> : <DarkModeIcon />}
+            {/* Notifications */}
+            <Tooltip title="Notifications">
+              <IconButton 
+                color="inherit"
+                onClick={(e) => setNotificationAnchor(e.currentTarget)}
+                sx={{
+                  bgcolor: theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100',
+                  '&:hover': {
+                    bgcolor: theme.palette.mode === 'dark' ? 'grey.700' : 'grey.200'
+                  }
+                }}
+              >
+                <Badge badgeContent={2} color="error">
+                  <NotificationsIcon fontSize="small" />
+                </Badge>
               </IconButton>
             </Tooltip>
             
-            <Avatar sx={{ bgcolor: 'secondary.main', width: 32, height: 32 }}>
-              A
-            </Avatar>
-          </Box>
+            {/* Theme Toggle */}
+            <Tooltip title="Toggle theme">
+              <IconButton 
+                onClick={toggleDarkMode} 
+                color="inherit"
+                sx={{
+                  bgcolor: theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100',
+                  '&:hover': {
+                    bgcolor: theme.palette.mode === 'dark' ? 'grey.700' : 'grey.200'
+                  }
+                }}
+              >
+                {darkMode ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
+              </IconButton>
+            </Tooltip>
+            
+            {/* User Menu */}
+            <Button
+              onClick={(e) => setAnchorEl(e.currentTarget)}
+              sx={{
+                borderRadius: 2,
+                px: 1.5,
+                py: 0.5,
+                bgcolor: theme.palette.mode === 'dark' ? 'grey.800' : 'grey.100',
+                '&:hover': {
+                  bgcolor: theme.palette.mode === 'dark' ? 'grey.700' : 'grey.200'
+                },
+                textTransform: 'none'
+              }}
+            >
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Avatar 
+                  sx={{ 
+                    width: 28, 
+                    height: 28, 
+                    bgcolor: 'primary.main',
+                    fontSize: '0.875rem'
+                  }}
+                >
+                  {user?.username?.charAt(0).toUpperCase() || 'A'}
+                </Avatar>
+                <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+                  <Typography variant="body2" fontWeight="medium" color="text.primary">
+                    {user?.displayName || user?.username || 'Admin'}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {user?.role || 'Administrator'}
+                  </Typography>
+                </Box>
+                <ExpandMoreIcon fontSize="small" />
+              </Stack>
+            </Button>
+            
+            {/* User Dropdown Menu */}
+            <Menu
+              anchorEl={anchorEl}
+              open={Boolean(anchorEl)}
+              onClose={() => setAnchorEl(null)}
+              PaperProps={{
+                sx: {
+                  mt: 1,
+                  minWidth: 200,
+                  borderRadius: 2
+                }
+              }}
+            >
+              <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography variant="subtitle2" fontWeight="bold">
+                  {user?.displayName || user?.username || 'Admin'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {user?.email || `${user?.username || 'admin'}@smtp-relay.local`}
+                </Typography>
+              </Box>
+              <MenuItem 
+                component={Link} 
+                to="/profile"
+                onClick={() => setAnchorEl(null)}
+              >
+                <ListItemIcon>
+                  <PersonIcon fontSize="small" />
+                </ListItemIcon>
+                My Profile
+              </MenuItem>
+              <MenuItem 
+                component={Link} 
+                to="/settings"
+                onClick={() => setAnchorEl(null)}
+              >
+                <ListItemIcon>
+                  <SettingsIcon fontSize="small" />
+                </ListItemIcon>
+                Settings
+              </MenuItem>
+              <Divider />
+              <MenuItem 
+                onClick={() => {
+                  setAnchorEl(null);
+                  handleLogout();
+                }}
+                sx={{ color: 'error.main' }}
+              >
+                <ListItemIcon>
+                  <LogoutIcon fontSize="small" color="error" />
+                </ListItemIcon>
+                Logout
+              </MenuItem>
+            </Menu>
+            
+            {/* Notifications Menu */}
+            <Menu
+              anchorEl={notificationAnchor}
+              open={Boolean(notificationAnchor)}
+              onClose={() => setNotificationAnchor(null)}
+              PaperProps={{
+                sx: {
+                  mt: 1,
+                  width: 320,
+                  borderRadius: 2
+                }
+              }}
+            >
+              <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography variant="subtitle1" fontWeight="bold">
+                  Notifications
+                </Typography>
+              </Box>
+              <MenuItem onClick={() => setNotificationAnchor(null)}>
+                <Box>
+                  <Typography variant="body2" fontWeight="medium">
+                    System Update Available
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Version 1.2.0 is ready to install
+                  </Typography>
+                </Box>
+              </MenuItem>
+              <MenuItem onClick={() => setNotificationAnchor(null)}>
+                <Box>
+                  <Typography variant="body2" fontWeight="medium">
+                    Queue Processing Complete
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    15 emails sent successfully
+                  </Typography>
+                </Box>
+              </MenuItem>
+              <Divider />
+              <Box sx={{ p: 1 }}>
+                <Button fullWidth size="small">
+                  View All Notifications
+                </Button>
+              </Box>
+            </Menu>
+          </Stack>
         </Toolbar>
       </AppBar>
       
