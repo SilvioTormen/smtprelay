@@ -129,7 +129,9 @@ security:
         role: 'admin',
         created: new Date().toISOString(),
         lastLogin: null,
-        mfaEnabled: false
+        mfaEnabled: false,
+        locked: false,
+        failedAttempts: 0
       }];
       
       const cipher = crypto.createCipheriv('aes-256-cbc', ENCRYPTION_KEY, IV);
