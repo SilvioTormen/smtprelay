@@ -17,10 +17,8 @@ A robust, enterprise-grade SMTP relay service designed for legacy devices (print
 - 8-bit MIME support
 
 ### **Microsoft 365 Integration**
-- **Automated Azure Setup Wizard** - Configure Azure AD app registration in minutes
-- **Exchange Configuration Management** - Automated mail flow and connector setup
 - OAuth2 Modern Authentication (Device Code, Authorization Code, Client Credentials)
-- Microsoft Graph API integration (recommended over SMTP OAuth2)
+- Microsoft Graph API integration (recommended)
 - Automatic token renewal and management
 
 ### **Enterprise Security**
@@ -29,19 +27,16 @@ A robust, enterprise-grade SMTP relay service designed for legacy devices (print
 - IP whitelisting with CIDR support
 - Rate limiting and DDoS protection
 - Comprehensive audit logging
-- Security score: 10/10
 
 ## 📋 Requirements
 
-- Red Hat Enterprise Linux 8/9/10 or compatible (Rocky Linux, AlmaLinux, CentOS Stream)
 - Node.js 18+ (LTS recommended: v20.x)
 - Microsoft 365 with active subscription
-- Azure AD App Registration (can be automated via setup wizard)
-- Redis (optional, for sessions and caching)
+- Azure AD App Registration
 
 ## 🎯 Quick Start
 
-### ⚡ One-Command Installation (NEW!)
+### ⚡ One-Command Installation
 
 ```bash
 # Clone and auto-install everything
@@ -51,114 +46,46 @@ git clone https://github.com/SilvioTormen/smtprelay.git && cd smtprelay && ./ins
 That's it! The installer will:
 - ✅ Install all dependencies
 - ✅ Generate security secrets
-- ✅ Create default admin user (admin/admin)
+- ✅ Create default admin user
 - ✅ Build the dashboard
 - ✅ Start the application
 
-**Access:** http://localhost:3001 | **Login:** admin/admin
+**Access Dashboard:** http://localhost:3001
 
-### Option 1: npm Installation (Auto-Setup)
+**Default Login:**
+- Username: `admin`
+- Password: `admin`
 
-```bash
-# Clone the repository
-git clone https://github.com/SilvioTormen/smtprelay.git
-cd smtprelay
-
-# Install - automatic setup runs after installation
-npm install
-
-# Start the application
-npm start
-
-# Or with PM2 for production
-npm run pm2
-```
-
-### Option 2: Ansible Deployment (Production)
-
-```bash
-# On Ansible control node
-git clone https://github.com/SilvioTormen/smtprelay.git
-cd smtprelay/ansible
-
-# Configure inventory
-cp -r inventory/example inventory/production
-vim inventory/production/hosts.yml
-
-# Deploy
-ansible-playbook -i inventory/production/hosts.yml deploy.yml --ask-vault-pass
-```
-
-[Detailed Ansible Guide](ansible/README.md)
-
-### Option 3: Manual Installation
-
-```bash
-# Install Node.js if needed
-curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo bash -
-sudo dnf install -y nodejs
-
-# Clone and install
-git clone https://github.com/SilvioTormen/smtprelay.git
-cd smtprelay
-npm install
-npm install --prefix dashboard
-
-# Create service user
-sudo useradd -r -s /bin/false smtp-relay
-
-# Move to /opt
-cd ..
-sudo mv smtprelay /opt/smtp-relay
-sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay
-
-# Setup
-cd /opt/smtp-relay
-sudo -u smtp-relay npm run setup
-sudo ./scripts/post-install.sh
-
-# Install service
-sudo cp smtp-relay.service /etc/systemd/system/
-sudo systemctl daemon-reload
-sudo systemctl enable --now smtp-relay
-```
+> ⚠️ **IMPORTANT:** Change the default password after first login!
 
 ## ⚙️ Configuration
 
-### Azure AD / Exchange Setup
+### Default Users
 
-The new automated setup wizard handles everything:
+The system creates three default users on first run:
 
-```bash
-# Interactive setup wizard
-npm run setup:azure
-```
+| Username | Password | Role | Permissions |
+|----------|----------|------|-------------|
+| admin | admin | Administrator | Full access |
+| helpdesk | helpdesk | Viewer | Read-only |
+| engineering | engineering | Operator | Read, Write, Configure |
 
-Choose from three setup modes:
+### Exchange Online Setup
 
-| Mode | Use Case | Requirements |
-|------|----------|--------------|
-| **Simple** | Basic email relay | Global Admin consent |
-| **Admin** | Full automation | Azure AD Admin credentials |
-| **Manual** | Custom setup | Existing app registration |
-
-### Authentication Methods
-
-| Method | Best For | Azure Permission | SMTP Auth Required |
-|--------|----------|-----------------|-------------------|
-| **Graph API** ✅ | New installations | `Mail.Send` | No |
-| **SMTP OAuth2** | Legacy compatibility | `SMTP.Send` | Yes |
-| **Hybrid** | Fallback scenarios | Both | Yes |
-
-[Authentication Methods Guide](docs/AUTH_METHODS_GUIDE.md)
+1. Login to the dashboard as admin
+2. Navigate to **Settings → Exchange Setup**
+3. Follow the setup wizard to configure Azure AD
 
 ### Legacy Device Configuration
+
+Edit `config.yml` to configure device access:
 
 ```yaml
 # IP whitelist for no-auth devices
 ip_whitelist:
   no_auth_required:
     - "192.168.1.0/24"  # Printer VLAN
+    - "10.0.50.0/24"    # IoT devices
     
 # Static users for legacy auth
 legacy_auth:
@@ -171,28 +98,28 @@ legacy_auth:
 ## 🔍 Management & Monitoring
 
 ### Web Dashboard
-- **URL**: `https://your-server` (production) or `http://server:3001` (development)
+- **URL**: `http://localhost:3001`
 - **Features**: 
   - Real-time statistics
   - Device management
   - Queue monitoring
-  - Exchange setup wizard
-  - IP whitelist management
-  - Security event tracking
+  - Exchange configuration
+  - User management
+  - Security logs
 
-### CLI Management
+### Service Management
+
 ```bash
-# Service status with all endpoints
-npm run status
-
-# Security check
-npm run security:check
+# Using PM2 (recommended)
+pm2 status smtp-relay
+pm2 restart smtp-relay
+pm2 logs smtp-relay
 
 # View logs
-tail -f /var/log/smtp-relay/relay.log
+tail -f logs/smtp-relay.log
 
-# Monitor failed authentications
-grep "LOGIN_FAILED" logs/auth-failures.log
+# Check status
+npm run status
 ```
 
 ## 📊 Typical Device Configurations
@@ -204,80 +131,46 @@ grep "LOGIN_FAILED" logs/auth-failures.log
 | NAS Systems | 587 | Yes | STARTTLS |
 | Monitoring Tools | 25 | No | Optional |
 | Security Cameras | 587 | Yes | STARTTLS |
-| IoT Devices | 25 | No | Optional |
 
 ## 🛠️ Troubleshooting
 
-### Common Issues
-
-**Device cannot send emails**
+### Device cannot send emails
 ```bash
 # Check IP whitelist
-cat config/config.yml | grep -A5 ip_whitelist
+grep -A5 ip_whitelist config.yml
 
-# Verify firewall
-sudo firewall-cmd --list-all
-
-# Check logs
-tail -f /var/log/smtp-relay/relay.log
+# Check logs for device IP
+grep "192.168.1.100" logs/smtp-relay.log
 ```
 
-**Exchange authentication failed**
+### Exchange authentication failed
 ```bash
-# Re-run setup wizard
-npm run setup:azure
-
 # Check token status
 cat .tokens.json | jq .expires_at
 
-# Reset authentication
-rm .tokens.json
-npm run setup:auth
+# Refresh tokens
+npm run refresh-token
 ```
 
-**Service won't start**
-```bash
-# Check permissions
-sudo chown -R smtp-relay:smtp-relay /opt/smtp-relay
+### Login issues
+- Default credentials: admin/admin
+- After failed attempts, wait 15 minutes or restart the service
+- Check `/data/users.json` exists
 
-# Verify directories
-sudo /opt/smtp-relay/scripts/post-install.sh
+## 🔒 Security Notes
 
-# Check service logs
-sudo journalctl -u smtp-relay -f
-```
-
-## 🔒 Security Features
-
-### Authentication & Authorization
-- Multi-Factor Authentication (TOTP + FIDO2)
-- OAuth2 modern authentication
-- httpOnly cookie authentication
-- JWT tokens with refresh rotation
-
-### Advanced Security
-- Device fingerprinting
-- Anomaly detection (impossible travel, unusual time)
-- VPN/Proxy/Tor detection
-- Exponential backoff lockout
-- Rate limiting per IP/user
-
-### Infrastructure Security
-- Comprehensive security headers (CSP, HSTS, etc.)
-- CSRF protection
-- Input validation and sanitization
-- Secure file operations
-- Audit logging
-
-[Security Documentation](SECURITY.md)
+- All user passwords are bcrypt hashed
+- Tokens are encrypted at rest
+- Session data in memory (or Redis if configured)
+- MFA can be enabled per user
+- Regular security updates via npm audit
 
 ## 📚 Documentation
 
-- [Azure Auto Setup Guide](docs/AZURE_AUTO_SETUP.md) - Automated Azure configuration
-- [OAuth2 Setup Guide](docs/OAUTH2_SETUP.md) - OAuth2 authentication setup
-- [MFA Setup Guide](docs/MFA_SETUP.md) - Multi-factor authentication
-- [TLS Management](docs/TLS_MANAGEMENT.md) - Certificate configuration
-- [Ansible Deployment](ansible/README.md) - Production deployment
+- [Exchange Setup Guide](docs/EXCHANGE_SETUP.md)
+- [OAuth2 Setup Guide](docs/OAUTH2_SETUP.md)
+- [MFA Setup Guide](docs/MFA_SETUP.md)
+- [Security Documentation](SECURITY.md)
 
 ## 🤝 Contributing
 
