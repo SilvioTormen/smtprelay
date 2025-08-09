@@ -1,6 +1,13 @@
 const fetch = require('node-fetch');
 const { v4: uuidv4 } = require('uuid');
 const crypto = require('crypto');
+const { 
+  validateTenantId, 
+  validateServiceAccount, 
+  validateMicrosoftUrl,
+  validateAppId,
+  sanitizeForLogging
+} = require('../utils/securityValidation');
 
 class AzureAppRegistrationService {
   constructor(logger = console) {
@@ -468,8 +475,16 @@ class AzureAppRegistrationService {
    */
   async setupServiceAccount(appId, tenantId, serviceAccount, adminToken) {
     try {
+      // Validate inputs
+      const sanitizedTenant = validateTenantId(tenantId);
+      const sanitizedAccount = validateServiceAccount(serviceAccount);
+      const sanitizedAppId = validateAppId(appId);
+      
       // Verify service account exists in directory
-      const userResponse = await fetch(`https://graph.microsoft.com/v1.0/users/${serviceAccount}`, {
+      const userUrl = `https://graph.microsoft.com/v1.0/users/${sanitizedAccount}`;
+      validateMicrosoftUrl(userUrl);
+      
+      const userResponse = await fetch(userUrl, {
         headers: {
           'Authorization': `Bearer ${adminToken}`
         }
@@ -482,7 +497,10 @@ class AzureAppRegistrationService {
       const userData = await userResponse.json();
 
       // Verify user has Exchange Online license
-      const licensesResponse = await fetch(`https://graph.microsoft.com/v1.0/users/${serviceAccount}/licenseDetails`, {
+      const licensesUrl = `https://graph.microsoft.com/v1.0/users/${sanitizedAccount}/licenseDetails`;
+      validateMicrosoftUrl(licensesUrl);
+      
+      const licensesResponse = await fetch(licensesUrl, {
         headers: {
           'Authorization': `Bearer ${adminToken}`
         }
@@ -525,14 +543,22 @@ class AzureAppRegistrationService {
    */
   async testConfiguration(appId, tenantId, serviceAccount) {
     try {
+      // Validate inputs
+      const sanitizedAppId = validateAppId(appId);
+      const sanitizedTenant = validateTenantId(tenantId);
+      const sanitizedAccount = validateServiceAccount(serviceAccount);
+      
       // Test by attempting to get an access token
-      const tokenResponse = await fetch(`https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/devicecode`, {
+      const tokenUrl = `https://login.microsoftonline.com/${sanitizedTenant}/oauth2/v2.0/devicecode`;
+      validateMicrosoftUrl(tokenUrl);
+      
+      const tokenResponse = await fetch(tokenUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
         },
         body: new URLSearchParams({
-          client_id: appId,
+          client_id: sanitizedAppId,
           scope: 'https://graph.microsoft.com/Mail.Send https://graph.microsoft.com/User.Read offline_access'
         })
       });

@@ -509,10 +509,20 @@ router.post('/upload',
         releaseLock('certificates', lockId);
       }
       
-      // Clean up temp files
+      // Clean up temp files with path validation
+      const tempDir = path.resolve(__dirname, '../../../.temp/');
       for (const file of tempFiles) {
         try {
-          await fs.unlink(file);
+          // Validate that file is in temp directory before deletion
+          const resolvedPath = path.resolve(file);
+          const realTempDir = await fs.realpath(tempDir).catch(() => tempDir);
+          
+          if (!resolvedPath.startsWith(realTempDir) && !resolvedPath.startsWith(tempDir)) {
+            console.error(`Attempted to delete file outside temp directory: ${file}`);
+            continue;
+          }
+          
+          await fs.unlink(resolvedPath);
         } catch (e) {
           // Ignore cleanup errors
         }
