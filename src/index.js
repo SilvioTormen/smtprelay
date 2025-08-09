@@ -11,6 +11,8 @@ const { AuthHandler } = require('./auth/auth-handler');
 const { RelayHandler } = require('./handlers/relay-handler');
 const { QueueManager } = require('./lib/queue-manager');
 const APIServer = require('./api/server'); // Use production server
+const ExchangeTokenRefreshService = require('./services/exchangeTokenRefreshService');
+const { OAuth2FlowManager } = require('./auth/oauth2-flows');
 
 // Load configuration
 const configPath = path.join(__dirname, '..', 'config.yml');
@@ -40,6 +42,10 @@ const logger = winston.createLogger({
 const authHandler = new AuthHandler(config, logger);
 const relayHandler = new RelayHandler(config, logger);
 const queueManager = new QueueManager(config, logger);
+
+// Initialize Exchange token refresh service
+const oauth2Manager = new OAuth2FlowManager(config.exchange_online, logger);
+const tokenRefreshService = new ExchangeTokenRefreshService(oauth2Manager, logger);
 
 // Initialize stats collector (needed for API server)
 const statsCollector = {
@@ -185,6 +191,13 @@ function shutdown() {
 
 // Start queue processor
 queueManager.start();
+
+// Start Exchange token refresh service
+tokenRefreshService.start().then(() => {
+  logger.info('Exchange token refresh service initialized');
+}).catch(err => {
+  logger.error('Failed to start token refresh service:', err);
+});
 
 // Start API/Dashboard server
 const apiServer = new APIServer(config, logger, statsCollector);

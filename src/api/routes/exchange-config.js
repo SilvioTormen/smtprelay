@@ -763,16 +763,19 @@ router.get('/token-status', authenticate, requireConfigure, async (req, res) => 
         const tokens = await tokenManager.getAccountTokens(defaultAccount.id || defaultAccount.email);
         const now = new Date();
         
+        console.log('Token status - tokens:', tokens);
+        console.log('Token status - expiresAt:', tokens?.expiresAt);
+        
         res.json({
-            accessToken: !!tokens?.access_token,
-            refreshToken: !!tokens?.refresh_token,
-            accessTokenExpiry: tokens?.expires_at,
-            refreshTokenExpiry: tokens?.refresh_token_expires_at || 
-                (tokens?.expires_at ? new Date(new Date(tokens.expires_at).getTime() + 90 * 24 * 60 * 60 * 1000).toISOString() : null),
-            lastRefresh: tokens?.obtained_at || tokens?.created_at,
-            tokenType: tokens?.token_type,
+            accessToken: !!tokens?.accessToken,
+            refreshToken: !!tokens?.refreshToken,
+            accessTokenExpiry: tokens?.expiresAt,
+            refreshTokenExpiry: tokens?.refreshTokenExpiresAt || 
+                (tokens?.expiresAt ? new Date(new Date(tokens.expiresAt).getTime() + 90 * 24 * 60 * 60 * 1000).toISOString() : null),
+            lastRefresh: tokens?.acquiredAt || tokens?.createdAt,
+            tokenType: tokens?.tokenType,
             scope: tokens?.scope,
-            isValid: tokens?.expires_at ? new Date(tokens.expires_at) > now : false
+            isValid: tokens?.expiresAt ? new Date(tokens.expiresAt) > now : false
         });
     } catch (error) {
         console.error('Token status error:', error);
@@ -837,7 +840,8 @@ router.get('/mailboxes', authenticate, requireConfigure, async (req, res) => {
             const accounts = await tokenManager.listAccounts();
             
             accounts.forEach(account => {
-                if (!mailboxes.find(m => m.email === account.email)) {
+                // Skip accounts without a valid email
+                if (account.email && account.email !== 'undefined' && !mailboxes.find(m => m.email === account.email)) {
                     mailboxes.push({
                         email: account.email,
                         type: account.isDefault ? 'Default Account' : 'Token Account',
