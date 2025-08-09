@@ -39,16 +39,37 @@ A robust, enterprise-grade SMTP relay service designed for legacy devices (print
 ### ⚡ One-Command Installation
 
 ```bash
-# Clone and auto-install everything
-git clone https://github.com/SilvioTormen/smtprelay.git && cd smtprelay && ./install.sh
+# Clone repository
+git clone https://github.com/SilvioTormen/smtprelay.git && cd smtprelay
+
+# Development mode (default - recommended for testing)
+./install.sh
+
+# Production mode (requires TLS certificates)
+./install.sh --prod
+
+# Show help
+./install.sh --help
 ```
 
-That's it! The installer will:
+The installer will:
+- ✅ Ask for installation mode (development/production)
 - ✅ Install all dependencies
 - ✅ Generate security secrets
 - ✅ Create default admin user
 - ✅ Build the dashboard
 - ✅ Start the application
+
+**Development vs Production Mode:**
+
+| Feature | Development | Production |
+|---------|------------|------------|
+| TLS Required | ❌ No | ✅ Yes |
+| HTTPS Enforcement | ❌ No | ✅ Yes |
+| Strong Passwords | ❌ Optional | ✅ Required |
+| Security Validation | 🟡 Warnings only | 🔴 Strict (blocks startup) |
+| Redis Password | ❌ Optional | ✅ Required |
+| Best for | Testing, Development | Live deployment |
 
 **Access Dashboard:** http://localhost:3001
 

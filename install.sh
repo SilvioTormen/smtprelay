@@ -33,6 +33,83 @@ echo "    📧 SMTP RELAY FOR EXCHANGE ONLINE - INSTALLER"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
+# Parse command line arguments
+MODE=""
+for arg in "$@"; do
+    case $arg in
+        --dev|--development)
+            MODE="development"
+            shift
+            ;;
+        --prod|--production)
+            MODE="production"
+            shift
+            ;;
+        --help|-h)
+            echo "Usage: $0 [OPTIONS]"
+            echo ""
+            echo "Options:"
+            echo "  --dev, --development    Install in development mode (default)"
+            echo "  --prod, --production    Install in production mode (requires certificates)"
+            echo "  --help, -h             Show this help message"
+            echo ""
+            echo "Examples:"
+            echo "  ./install.sh              # Development mode (default)"
+            echo "  ./install.sh --dev        # Development mode (explicit)"
+            echo "  ./install.sh --prod       # Production mode"
+            echo ""
+            exit 0
+            ;;
+        *)
+            print_error "Unknown option: $arg"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
+# If no mode specified, ask user
+if [ -z "$MODE" ]; then
+    echo "Please select installation mode:"
+    echo ""
+    echo "  1) Development (recommended for testing)"
+    echo "  2) Production (requires TLS certificates)"
+    echo ""
+    read -p "Enter choice [1-2] (default: 1): " choice
+    choice=${choice:-1}
+    
+    case $choice in
+        1)
+            MODE="development"
+            ;;
+        2)
+            MODE="production"
+            ;;
+        *)
+            print_error "Invalid choice"
+            exit 1
+            ;;
+    esac
+fi
+
+print_info "Installing in ${MODE^^} mode"
+echo ""
+
+# Production mode warnings
+if [ "$MODE" = "production" ]; then
+    print_warning "Production mode requirements:"
+    echo "  • TLS certificates (cert.pem, key.pem)"
+    echo "  • HTTPS configuration"
+    echo "  • Strong passwords"
+    echo "  • Redis with password (optional)"
+    echo ""
+    read -p "Do you have all requirements ready? (y/N): " confirm
+    if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+        print_info "Switching to development mode..."
+        MODE="development"
+    fi
+fi
+
 # Check Node.js
 print_info "Checking prerequisites..."
 if ! command -v node &> /dev/null; then
@@ -76,8 +153,25 @@ JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('he
 JWT_REFRESH_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 SESSION_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 ENCRYPTION_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-NODE_ENV=development
+NODE_ENV=$MODE
 EOF
+    
+    # Add production-specific configs
+    if [ "$MODE" = "production" ]; then
+        cat >> .env << EOF
+
+# Production settings
+FORCE_HTTPS=true
+TLS_CERT_PATH=./certs/cert.pem
+TLS_KEY_PATH=./certs/key.pem
+RP_ID=your-domain.com
+ORIGIN=https://your-domain.com
+ADMIN_INITIAL_PASSWORD=$(node -e "console.log(require('crypto').randomBytes(12).toString('base64'))")
+REDIS_PASSWORD=$(node -e "console.log(require('crypto').randomBytes(12).toString('base64'))")
+EOF
+        print_warning "Production mode: Update .env with your domain and paths!"
+    fi
+    
     print_success "Security secrets generated"
 else
     print_info "Using existing .env file"
@@ -194,12 +288,23 @@ print_success "Dashboard built successfully"
 # Create logs directory
 mkdir -p logs
 
+# Production mode certificate check
+if [ "$MODE" = "production" ]; then
+    if [ ! -d certs ]; then
+        print_warning "Creating certs directory..."
+        mkdir -p certs
+        print_warning "Add your TLS certificates to ./certs/"
+        print_warning "  - cert.pem (certificate)"
+        print_warning "  - key.pem (private key)"
+    fi
+fi
+
 # Check if PM2 is installed
 if command -v pm2 &> /dev/null; then
     print_info "Starting application with PM2..."
     pm2 stop smtp-relay 2>/dev/null || true
     pm2 delete smtp-relay 2>/dev/null || true
-    NODE_ENV=development pm2 start src/index.js --name smtp-relay
+    NODE_ENV=$MODE pm2 start src/index.js --name smtp-relay
     pm2 save 2>/dev/null || true
     
     print_success "Application started with PM2"
@@ -208,6 +313,7 @@ if command -v pm2 &> /dev/null; then
     echo "  🎉 Installation Complete!"
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo ""
+    echo "  Mode:             ${MODE^^}"
     echo "  📊 Dashboard:     http://localhost:3001"
     echo "  👤 Username:      admin"
     echo "  🔑 Password:      admin"
@@ -219,41 +325,31 @@ if command -v pm2 &> /dev/null; then
     echo "  • pm2 restart smtp-relay - Restart"
     echo "  • pm2 stop smtp-relay - Stop"
     echo ""
-else
-    # Offer to run without PM2
-    print_warning "PM2 not installed. Install with: npm install -g pm2"
-    echo ""
-    read -p "Start application without PM2? (y/n) " -n 1 -r
-    echo ""
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "Starting application..."
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  🎉 Installation Complete!"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        echo "  📊 Dashboard:     http://localhost:3001"
-        echo "  👤 Username:      admin"
-        echo "  🔑 Password:      admin"
-        echo "  📧 SMTP Port:     2525"
-        echo ""
-        echo "  Press Ctrl+C to stop"
-        echo ""
-        NODE_ENV=production node src/index.js
-    else
-        echo ""
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo "  ✅ Installation Complete!"
-        echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-        echo ""
-        echo "  Start the application with:"
-        echo "  • npm start"
-        echo "  • node src/index.js"
-        echo ""
-        echo "  📊 Dashboard:     http://localhost:3001"
-        echo "  👤 Username:      admin"
-        echo "  🔑 Password:      admin"
-        echo "  📧 SMTP Port:     2525"
-        echo ""
+    
+    if [ "$MODE" = "production" ]; then
+        print_warning "Production mode checklist:"
+        echo "  ☐ Update .env with your domain settings"
+        echo "  ☐ Add TLS certificates to ./certs/"
+        echo "  ☐ Configure Redis password if using Redis"
+        echo "  ☐ Change default admin password"
+        echo "  ☐ Enable MFA for admin users"
     fi
+else
+    print_info "Starting application with Node.js..."
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo "  🎉 Installation Complete!"
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo "  Mode:             ${MODE^^}"
+    echo "  📊 Dashboard:     http://localhost:3001"
+    echo "  👤 Username:      admin"
+    echo "  🔑 Password:      admin"
+    echo "  📧 SMTP Port:     2525"
+    echo ""
+    echo "  Start the application:"
+    echo "  • NODE_ENV=$MODE npm start"
+    echo ""
+    print_info "Install PM2 for better process management:"
+    echo "  npm install -g pm2"
 fi
