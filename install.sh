@@ -76,7 +76,7 @@ JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('he
 JWT_REFRESH_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 SESSION_SECRET=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
 ENCRYPTION_KEY=$(node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")
-NODE_ENV=production
+NODE_ENV=development
 EOF
     print_success "Security secrets generated"
 else
@@ -199,7 +199,7 @@ if command -v pm2 &> /dev/null; then
     print_info "Starting application with PM2..."
     pm2 stop smtp-relay 2>/dev/null || true
     pm2 delete smtp-relay 2>/dev/null || true
-    NODE_ENV=production pm2 start src/index.js --name smtp-relay
+    NODE_ENV=development pm2 start src/index.js --name smtp-relay
     pm2 save 2>/dev/null || true
     
     print_success "Application started with PM2"

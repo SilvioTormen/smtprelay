@@ -44,7 +44,7 @@ JWT_SECRET=${crypto.randomBytes(32).toString('hex')}
 JWT_REFRESH_SECRET=${crypto.randomBytes(32).toString('hex')}
 SESSION_SECRET=${crypto.randomBytes(32).toString('hex')}
 ENCRYPTION_KEY=${crypto.randomBytes(32).toString('hex')}
-NODE_ENV=production
+NODE_ENV=development
 `;
     fs.writeFileSync(envPath, envContent);
     log.success('Security secrets generated');
