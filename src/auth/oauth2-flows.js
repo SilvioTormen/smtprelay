@@ -457,9 +457,19 @@ class OAuth2FlowManager {
     try {
       const tokenEndpoint = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
       
+      // Determine which scope to use based on config
+      let scope = 'offline_access';
+      const apiMethod = this.config.api_method || 'graph_api';
+      
+      if (apiMethod === 'graph_api') {
+        scope = 'https://graph.microsoft.com/Mail.Send offline_access';
+      } else if (apiMethod === 'smtp_oauth2') {
+        scope = 'https://outlook.office365.com/SMTP.Send offline_access';
+      }
+      
       const params = new URLSearchParams({
         client_id: clientId,
-        scope: 'https://outlook.office365.com/SMTP.Send https://graph.microsoft.com/Mail.Send offline_access',
+        scope: scope,
         refresh_token: refreshToken,
         grant_type: 'refresh_token'
       });

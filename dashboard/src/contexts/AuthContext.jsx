@@ -40,6 +40,31 @@ export const AuthProvider = ({ children }) => {
       if (response.ok) {
         const userData = await response.json();
         setUser(userData);
+      } else if (response.status === 401) {
+        // Access token expired, try to refresh
+        console.log('Access token expired, attempting refresh...');
+        const refreshSuccess = await refreshToken();
+        
+        if (refreshSuccess) {
+          // Retry getting user info after refresh
+          const retryResponse = await fetch(`${API_URL}/api/auth/me`, {
+            method: 'GET',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (retryResponse.ok) {
+            const userData = await retryResponse.json();
+            setUser(userData);
+            return;
+          }
+        }
+        
+        // Refresh failed, clear session
+        setUser(null);
+        sessionStorage.removeItem('userInfo');
       } else {
         // Check sessionStorage for user info (safer than localStorage)
         const storedUserInfo = sessionStorage.getItem('userInfo');
@@ -249,15 +274,21 @@ export const AuthProvider = ({ children }) => {
 
   // Auto-refresh token before expiry
   useEffect(() => {
-    if (!user) return;
-
+    // Start refresh timer even if user is not set yet
+    // This ensures tokens stay fresh even after page reload
+    
     // Refresh token every 14 minutes (token expires in 15)
-    const interval = setInterval(() => {
-      refreshToken();
+    const interval = setInterval(async () => {
+      console.log('Auto-refresh timer triggered');
+      const refreshed = await refreshToken();
+      if (refreshed && !user) {
+        // If refresh succeeded but no user is set, check session
+        checkSession();
+      }
     }, 14 * 60 * 1000);
 
     return () => clearInterval(interval);
-  }, [user]);
+  }, []); // Remove user dependency to always keep refreshing
 
   const value = {
     user,
