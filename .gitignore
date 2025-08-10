@@ -98,17 +98,23 @@ env/
 
 
 
-# Claude Flow generated files
-.claude/settings.local.json
-.mcp.json
-claude-flow.config.json
-.swarm/
-.hive-mind/
+# Claude & Claude Flow - LOCAL DEVELOPMENT ONLY
+.claude/
+.claude-flow/
+.roo/
+.roomodes
+CLAUDE.md
+prompts/
 memory/claude-flow-data.json
+memory/memory-store.json
 memory/sessions/*
 !memory/sessions/README.md
 memory/agents/*
 !memory/agents/README.md
+.swarm/
+.hive-mind/
+.mcp.json
+claude-flow.config.json
 coordination/memory_bank/*
 coordination/subtasks/*
 coordination/orchestration/*
