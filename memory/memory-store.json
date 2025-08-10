@@ -1,0 +1,10 @@
+{
+  "default": [
+    {
+      "key": "smtprelay-nfr",
+      "value": "Regeln:\n- Clean/Hex Architektur, pnpm Workspaces, Node >= 20, ESM only\n- KEIN Docker, KEIN Ansible\n- Funktionalitaet & CSS/DOM Selectors des Dashboards muessen gleich bleiben\n- Vollautomatische Tests: Vitest (unit/int), Playwright (visuell)\n- Coverage-Gates: 90% statements/branches/functions/lines\n- Schreibe Deutsch, benutze immer \"ss\" statt \"ß\"\n- Antworte auf Patch-Aufgaben nur mit unified git patch (diff --git)",
+      "namespace": "default",
+      "timestamp": 1754831516765
+    }
+  ]
+}

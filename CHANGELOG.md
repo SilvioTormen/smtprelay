@@ -85,7 +85,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Real-time statistics
   - Device management
   - Queue monitoring
-- **Ansible Deployment Playbooks**
 - **Redis Integration** for sessions and caching
 - **Comprehensive Documentation**:
   - OAuth2 setup guide

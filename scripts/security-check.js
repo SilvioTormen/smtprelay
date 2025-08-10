@@ -26,7 +26,6 @@ class SecurityChecker {
     this.checkSensitiveData();
     this.checkCertificates();
     this.checkConfiguration();
-    this.checkDockerSecurity();
 
     this.printResults();
   }
@@ -204,25 +203,6 @@ class SecurityChecker {
     }
   }
 
-  checkDockerSecurity() {
-    console.log('Checking Docker security...');
-
-    if (fs.existsSync('Dockerfile')) {
-      const dockerfile = fs.readFileSync('Dockerfile', 'utf8');
-      
-      // Check for running as root
-      if (!dockerfile.includes('USER ')) {
-        this.issues.push('❌ Dockerfile runs container as root');
-      } else {
-        this.passed.push('✅ Dockerfile uses non-root user');
-      }
-      
-      // Check for latest tags
-      if (dockerfile.includes(':latest')) {
-        this.warnings.push('⚠️  Dockerfile uses :latest tags (use specific versions)');
-      }
-    }
-  }
 
   printResults() {
     console.log('\n📊 Security Check Results');

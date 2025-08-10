@@ -82,7 +82,7 @@ Before configuring the SMTP Relay, you need to create an Azure AD App Registrati
 
 ### 1. Device Code Flow (Recommended for Servers)
 
-**Best for:** Headless servers, Docker containers, VMs without browser
+**Best for:** Headless servers, VMs without browser
 
 **How it works:**
 1. Server displays a code (e.g., `ABCD-1234`)

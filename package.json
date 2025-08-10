@@ -79,11 +79,15 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.4",
+    "claude-flow": "^2.0.0-alpha.88",
     "eslint": "^8.55.0",
     "jest": "^29.7.0",
     "nodemon": "^3.0.2"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "directories": {
+    "doc": "docs"
   }
 }
