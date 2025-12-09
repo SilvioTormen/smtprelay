@@ -202,10 +202,11 @@ tokenRefreshService.start().then(() => {
 // Start API/Dashboard server
 const apiServer = new APIServer(config, logger, statsCollector);
 const dashboardPort = process.env.WEB_PORT || config.dashboard?.port || 3001;
+const dashboardHost = process.env.WEB_HOST || config.dashboard?.host || '0.0.0.0';
 
 apiServer.initialize().then(() => {
-  apiServer.start(dashboardPort);
-  logger.info(`Dashboard server started on port ${dashboardPort}`);
+  apiServer.start(dashboardPort, dashboardHost);
+  logger.info(`Dashboard server started on ${dashboardHost}:${dashboardPort}`);
 }).catch(err => {
   logger.error('Failed to start dashboard server:', err);
 });

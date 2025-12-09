@@ -503,10 +503,10 @@ class APIServer {
     }
   }
 
-  start(port = 3001) {
-    this.server.listen(port, () => {
-      this.logger.info(`API Server with WebSocket running on port ${port}`);
-      this.logger.info(`Dashboard available at http://localhost:${port}`);
+  start(port = 3001, host = '0.0.0.0') {
+    this.server.listen(port, host, () => {
+      this.logger.info(`API Server with WebSocket running on ${host}:${port}`);
+      this.logger.info(`Dashboard available at http://${host === '0.0.0.0' ? 'YOUR_SERVER_IP' : host}:${port}`);
     });
   }
 
